@@ -618,39 +618,204 @@ export default function RelationMap({
           })()}
 
           {/* 정밀 해설 영역 */}
-          {!isPending && (
-            <div className="bg-white rounded-2xl shadow-sm border border-[#EBE5F2] overflow-hidden">
-              <div className="p-4">
-                <div className="flex items-center gap-2 mb-2.5">
-                  <Shield className="w-4 h-4 text-[#7C3AED]" />
-                  <p className="text-xs font-bold text-[#7C3AED]">정밀 궁합 해설</p>
-                  {selectedNode.isDetailUnlocked && (
-                    <span className="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full font-bold border border-emerald-100 ml-auto">해금됨</span>
-                  )}
+          {!isPending && selectedNode.isDetailUnlocked && selectedNode.detailReport ? (
+            /* ── 해금됨: 카드형 리포트 ── */
+            <div className="space-y-3 animate-fade-in">
+              {/* 리포트 헤더 */}
+              <div className="bg-gradient-to-br from-[#5E4078] to-[#7C3AED] rounded-2xl p-5 shadow-md">
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className="w-4 h-4 text-purple-200" />
+                  <p className="text-xs font-bold text-purple-200">정밀 궁합 리포트</p>
+                  <span className="text-[9px] bg-white/20 text-white px-2 py-0.5 rounded-full font-bold ml-auto">해금됨</span>
                 </div>
+                <p className="text-white text-sm font-bold leading-relaxed">{selectedNode.detailReport.headline}</p>
+              </div>
 
-                {selectedNode.isDetailUnlocked ? (
-                  <div className="animate-fade-in">
-                    <div className="bg-[#FAF7FD] rounded-xl p-4 border border-[#EFE7F7]">
-                      <p className="text-sm text-gray-700 leading-relaxed">{selectedNode.detailSummary}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <div className="bg-[#FAF7FD] rounded-xl p-4 border border-[#EFE7F7] blur-[6px] select-none pointer-events-none">
-                      <p className="text-sm text-gray-700 leading-relaxed">서로 판단이 빠르고 행동 전환이 빨라 함께 시너지가 큽니다. 다만 속도 차이가 날 때 서로 답답함을 느낄 수 있어요.</p>
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="bg-white/90 backdrop-blur-sm px-4 py-2.5 rounded-xl border border-[#D1C5E0] shadow-sm flex items-center gap-2">
-                        <Lock className="w-4 h-4 text-[#5E4078]" />
-                        <span className="text-xs font-bold text-[#5E4078]">해금 후 확인 가능</span>
+              {/* 핵심 축 카드 */}
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBE5F2]">
+                <div className="flex items-center gap-2 mb-3">
+                  <BarChart3 className="w-4 h-4 text-[#5E4078]" />
+                  <p className="text-xs font-bold text-[#5E4078]">핵심 궁합 축</p>
+                </div>
+                <div className="space-y-3">
+                  {selectedNode.detailReport.axes.map(axis => (
+                    <div key={axis.name}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-bold text-gray-700">{axis.name}</span>
+                        <span className="text-[11px] font-extrabold text-[#5E4078]">{axis.score}</span>
                       </div>
+                      <div className="w-full bg-gray-100 rounded-full h-2 mb-1">
+                        <div className={`h-2 rounded-full transition-all ${
+                          axis.score >= 80 ? 'bg-emerald-400' : axis.score >= 60 ? 'bg-amber-400' : 'bg-rose-400'
+                        }`} style={{ width: `${axis.score}%` }} />
+                      </div>
+                      <p className="text-[10px] text-gray-400">{axis.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 사주적 근거 */}
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBE5F2]">
+                <div className="flex items-center gap-2 mb-3">
+                  <BookOpen className="w-4 h-4 text-[#5E4078]" />
+                  <p className="text-xs font-bold text-[#5E4078]">왜 이런 궁합인지</p>
+                </div>
+                <div className="space-y-2.5">
+                  {selectedNode.detailReport.sajuBasis.map((basis, i) => (
+                    <div key={i} className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7]">
+                      <p className="text-[11px] font-bold text-[#5E4078] mb-1">{basis.title}</p>
+                      <p className="text-[11px] text-gray-600 leading-relaxed">{basis.easy}</p>
+                      <p className="text-[10px] text-gray-400 mt-1.5 pt-1.5 border-t border-[#EFE7F7]">📐 {basis.technical}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 잘 맞는 상황 / 흔들리는 상황 */}
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBE5F2]">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[11px] font-bold text-emerald-600 mb-2 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" /> 잘 맞는 상황
+                    </p>
+                    <div className="space-y-1.5">
+                      {selectedNode.detailReport.goodSituations.map((s, i) => (
+                        <div key={i} className="bg-emerald-50 rounded-lg p-2 border border-emerald-100">
+                          <p className="text-[10px] text-emerald-700 leading-relaxed">{s}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                )}
+                  <div>
+                    <p className="text-[11px] font-bold text-rose-500 mb-2 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block" /> 흔들리는 상황
+                    </p>
+                    <div className="space-y-1.5">
+                      {selectedNode.detailReport.badSituations.map((s, i) => (
+                        <div key={i} className="bg-rose-50 rounded-lg p-2 border border-rose-100">
+                          <p className="text-[10px] text-rose-600 leading-relaxed">{s}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 갈등 패턴 & 회복 */}
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBE5F2]">
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className="w-4 h-4 text-amber-500" />
+                  <p className="text-xs font-bold text-[#5E4078]">갈등 패턴과 회복 방식</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: '갈등 시작', text: selectedNode.detailReport.conflictPattern.trigger, color: 'bg-amber-50 border-amber-100 text-amber-700' },
+                    { label: '커지는 이유', text: selectedNode.detailReport.conflictPattern.escalation, color: 'bg-orange-50 border-orange-100 text-orange-700' },
+                    { label: '생기는 오해', text: selectedNode.detailReport.conflictPattern.misconception, color: 'bg-rose-50 border-rose-100 text-rose-600' },
+                    { label: '회복 방식', text: selectedNode.detailReport.conflictPattern.recovery, color: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
+                  ].map(item => (
+                    <div key={item.label} className={`rounded-xl p-2.5 border ${item.color}`}>
+                      <p className="text-[9px] font-bold mb-1 opacity-70">{item.label}</p>
+                      <p className="text-[10px] leading-relaxed">{item.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 관계 유형별 해석 */}
+              {selectedNode.detailReport.relationContext && (() => {
+                const ctxMap = { friend: '친구', romance: '연애/썸', work: '직장', family: '가족' };
+                const ctxEmoji = { friend: '👫', romance: '💕', work: '💼', family: '🏠' };
+                return (
+                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBE5F2]">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Users className="w-4 h-4 text-[#5E4078]" />
+                      <p className="text-xs font-bold text-[#5E4078]">관계 유형별 해석</p>
+                    </div>
+                    <div className="space-y-2.5">
+                      {Object.entries(selectedNode.detailReport.relationContext).map(([key, tips]) => (
+                        <div key={key} className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7]">
+                          <p className="text-[11px] font-bold text-[#5E4078] mb-1.5">{ctxEmoji[key]} {ctxMap[key]}</p>
+                          <div className="space-y-1">
+                            {tips.map((tip, i) => (
+                              <p key={i} className="text-[10px] text-gray-600 leading-relaxed flex items-start gap-1">
+                                <span className="text-[#5E4078] mt-0.5">·</span> {tip}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 실전 행동 가이드 */}
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBE5F2]">
+                <div className="flex items-center gap-2 mb-3">
+                  <Lightbulb className="w-4 h-4 text-amber-500" />
+                  <p className="text-xs font-bold text-[#5E4078]">실전 행동 가이드</p>
+                </div>
+                <div className="space-y-2">
+                  {selectedNode.detailReport.actionGuide.map((tip, i) => (
+                    <div key={i} className="bg-amber-50 rounded-xl p-3 border border-amber-100 flex items-start gap-2">
+                      <span className="text-amber-500 text-xs font-extrabold mt-0.5">{i + 1}</span>
+                      <p className="text-[11px] text-amber-800 leading-relaxed font-medium">{tip}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 장기 전망 */}
+              <div className="bg-gradient-to-br from-[#FAF7FD] to-[#F0EBF5] rounded-2xl p-4 shadow-sm border border-[#EBE5F2]">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-4 h-4 text-[#5E4078]" />
+                  <p className="text-xs font-bold text-[#5E4078]">장기 전망</p>
+                </div>
+                <p className="text-[11px] text-gray-700 leading-relaxed">{selectedNode.detailReport.longTermOutlook}</p>
               </div>
             </div>
-          )}
+          ) : !isPending ? (
+            /* ── 미해금: 티저 + 잠금 ── */
+            <div className="space-y-3">
+              {/* 정밀 해설 티저 카드 */}
+              <div className="bg-white rounded-2xl shadow-sm border border-[#EBE5F2] overflow-hidden">
+                <div className="bg-gradient-to-r from-[#5E4078] to-[#7C3AED] px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-purple-200" />
+                    <p className="text-xs font-bold text-white">정밀 궁합 해설</p>
+                  </div>
+                  <p className="text-[11px] text-purple-200 mt-1">이 관계의 감정 흐름, 갈등 패턴, 회복 방식까지 더 깊게 볼 수 있어요</p>
+                </div>
+                <div className="p-4">
+                  <p className="text-[11px] font-bold text-gray-500 mb-2.5">해금하면 볼 수 있어요</p>
+                  <div className="space-y-2">
+                    {[
+                      { icon: '📊', text: '핵심 궁합 축 5가지 분석' },
+                      { icon: '✅', text: '잘 맞는 상황 · 흔들리는 상황' },
+                      { icon: '🔄', text: '갈등 패턴과 회복 방식' },
+                      { icon: '👫', text: '친구/연애/직장/가족 맞춤 해석' },
+                      { icon: '💡', text: '실전 행동 가이드' },
+                    ].map(item => (
+                      <div key={item.text} className="flex items-center gap-2.5 bg-gray-50 rounded-xl px-3 py-2.5 border border-gray-100">
+                        <span className="text-sm">{item.icon}</span>
+                        <span className="text-[11px] text-gray-600 font-medium">{item.text}</span>
+                        <Lock className="w-3 h-3 text-gray-300 ml-auto" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* 유도 카피 */}
+                <div className="px-4 pb-4">
+                  <div className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7] text-center">
+                    <p className="text-[11px] text-[#5E4078] font-bold">좋은 이유보다, 흔들릴 때를 더 정확히 알고 싶다면</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">단순 총평이 아닌 상황별 반응 패턴을 분석해드려요</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {/* 액션 버튼 */}
           <div className="space-y-2.5 pt-1 pb-4">
@@ -665,9 +830,14 @@ export default function RelationMap({
               </button>
             )}
             {!isPending && selectedNode.isDetailUnlocked && (
-              <button onClick={handleStartChat} className="w-full bg-[#5E4078] text-white py-3.5 rounded-xl font-bold shadow-md flex justify-center items-center gap-2 hover:bg-[#4A306D] transition">
-                <MessageSquare className="w-4 h-4" /> AI 하니와 추가 상담하기
-              </button>
+              <>
+                <button onClick={handleStartChat} className="w-full bg-[#5E4078] text-white py-3.5 rounded-xl font-bold shadow-md flex justify-center items-center gap-2 hover:bg-[#4A306D] transition">
+                  <MessageSquare className="w-4 h-4" /> AI 하니에게 이 관계 더 물어보기
+                </button>
+                <button className="w-full bg-gray-100 text-gray-600 py-3 rounded-xl font-bold flex justify-center items-center gap-2 hover:bg-gray-200 transition text-sm">
+                  <BookOpen className="w-4 h-4" /> 이 사람과 관련된 기록 보기
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -676,12 +846,20 @@ export default function RelationMap({
         {showUnlockConfirm && (
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center animate-fade-in" onClick={() => setShowUnlockConfirm(false)}>
             <div className="bg-white rounded-3xl p-6 mx-6 w-full max-w-[340px] shadow-2xl animate-fade-in-up" onClick={e => e.stopPropagation()}>
-              <div className="text-center mb-5">
-                <div className="w-14 h-14 bg-[#F0EBF5] rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Coins className="w-7 h-7 text-[#5E4078]" />
+              <div className="text-center mb-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-[#5E4078] to-[#7C3AED] rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Shield className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">정밀 해설 해금</h3>
-                <p className="text-sm text-gray-500">{selectedNode.name}님과의 정밀 궁합 해설을<br />해금하시겠어요?</p>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">정밀 궁합 리포트 해금</h3>
+                <p className="text-sm text-gray-500">{selectedNode.name}님과의 관계를<br />깊이 분석해드릴게요</p>
+              </div>
+              <div className="space-y-1.5 mb-4">
+                {['핵심 궁합 축 5가지', '상황별 해석', '갈등/회복 가이드', '실전 행동 팁'].map(item => (
+                  <div key={item} className="flex items-center gap-2 px-3 py-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#5E4078]" />
+                    <span className="text-[11px] text-gray-600 font-medium">{item}</span>
+                  </div>
+                ))}
               </div>
               <div className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7] mb-5 text-center">
                 <p className="text-xs text-gray-500 mb-1">차감 금액</p>
