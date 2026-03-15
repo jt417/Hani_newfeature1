@@ -436,6 +436,11 @@ export default function GroupRoom({ showToast, onSaveToMap, onViewMap }) {
       const teaser = ANALYZING_TEASERS[Math.floor(Date.now() / 50000) % ANALYZING_TEASERS.length];
       return (
         <div className="flex flex-col h-full items-center justify-center bg-[#2D2D2D] text-white p-6 animate-fade-in pb-20 relative">
+          {/* 취소 버튼 */}
+          <button onClick={() => setRoomStep('invite_lobby')}
+            className="absolute top-4 right-4 text-white/50 text-xs font-bold bg-white/10 px-3 py-1.5 rounded-full hover:bg-white/20 transition z-10">
+            취소
+          </button>
           {/* 떠다니는 아바타 */}
           <div className="flex gap-3 mb-10">
             {participants.map((p, i) => (
