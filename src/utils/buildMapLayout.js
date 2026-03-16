@@ -55,15 +55,11 @@ export function buildGroupLayout(groups, activeGroupIds) {
 export function buildNodeLayout(nodes, groupLayouts) {
   // 1) 그룹별로 소속 노드 수집 (primary + secondary 모두)
   const groupNodeMap = {};   // groupId → [{ node, isGhost }]
-  const pendingNodes = [];
 
   const activeGroupIds = new Set(groupLayouts.map(g => g.id));
 
   nodes.forEach(node => {
-    if (node.status === 'pending' || !node.groups || node.groups[0] === 'pending') {
-      pendingNodes.push(node);
-      return;
-    }
+    if (!node.groups || node.groups.length === 0) return;
     const realGroups = node.groups.filter(gId => activeGroupIds.has(gId));
     const multiGroupCount = realGroups.length;
 
@@ -114,25 +110,6 @@ export function buildNodeLayout(nodes, groupLayouts) {
     });
   });
 
-  // 3) 미확인 노드: 하단 영역 가로 정렬
-  if (pendingNodes.length > 0) {
-    const spacing = 75;
-    const startX = CENTER_X - ((pendingNodes.length - 1) * spacing) / 2;
-    pendingNodes.forEach((node, i) => {
-      result.push({
-        ...node,
-        layoutKey: node.id,
-        layoutX: Math.round(startX + i * spacing),
-        layoutY: CENTER_Y + getGroupRadius(groupLayouts.length) + 130,
-        isOverflowNode: false,
-        isGhost: false,
-        multiGroupCount: 0,
-        primaryGroupId: null,
-        instanceGroupId: null,
-      });
-    });
-  }
-
   return result;
 }
 
@@ -174,7 +151,7 @@ export function getAutoFitZoom(viewportWidth, viewportHeight, groupCount = 5) {
   const padding = 60;
 
   const zoomX = viewportWidth / (contentSpan + padding);
-  const zoomY = viewportHeight / (contentSpan + padding + 80); // 하단 pending 영역 여유
+  const zoomY = viewportHeight / (contentSpan + padding);
 
   return Math.min(zoomX, zoomY, 0.85);
 }

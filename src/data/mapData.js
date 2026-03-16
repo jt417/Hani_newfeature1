@@ -70,7 +70,8 @@ export const FIXED_NODES = [
     isDetailUnlocked: true, isRecent: false, isMatchable: true,
     badge: 'bg-[#E3D9F0] text-[#5E4078] border-[#C3AEE0]',
     privateLabels: [],
-    x: 440, y: 380
+    x: 440, y: 380,
+    isHidden: false, isLocked: false, isDeleted: false
   },
   {
     id: 'c2', name: '김서하', groups: ['g3'],
@@ -126,7 +127,8 @@ export const FIXED_NODES = [
     isDetailUnlocked: true, isRecent: false, isMatchable: true,
     badge: 'bg-[#F0EBF5] text-[#5E4078] border-[#D1C5E0]',
     privateLabels: [],
-    x: 930, y: 440
+    x: 930, y: 440,
+    isHidden: false, isLocked: false, isDeleted: false
   },
   {
     id: 'c3', name: '박준영', groups: ['g1'],
@@ -182,7 +184,8 @@ export const FIXED_NODES = [
     isDetailUnlocked: false, isRecent: false, isMatchable: false,
     badge: 'bg-[#E3D9F0] text-[#5E4078] border-[#C3AEE0]',
     privateLabels: [],
-    x: 250, y: 440
+    x: 250, y: 440,
+    isHidden: false, isLocked: false, isDeleted: false
   },
   {
     id: 'c4', name: '이민지', groups: ['g1'],
@@ -238,7 +241,8 @@ export const FIXED_NODES = [
     isDetailUnlocked: false, isRecent: true, isMatchable: true,
     badge: 'bg-[#F0EBF5] text-[#5E4078] border-[#D1C5E0]',
     privateLabels: [],
-    x: 340, y: 530
+    x: 340, y: 530,
+    isHidden: false, isLocked: false, isDeleted: false
   },
   {
     id: 'c5', name: '최현우', groups: ['g2'],
@@ -294,7 +298,8 @@ export const FIXED_NODES = [
     isDetailUnlocked: false, isRecent: false, isMatchable: true,
     badge: 'bg-[#F0EBF5] text-[#5E4078] border-[#D1C5E0]',
     privateLabels: [],
-    x: 640, y: 240
+    x: 640, y: 240,
+    isHidden: false, isLocked: false, isDeleted: false
   },
   {
     id: 'c6', name: '강지윤', groups: ['g4'],
@@ -350,7 +355,8 @@ export const FIXED_NODES = [
     isDetailUnlocked: false, isRecent: false, isMatchable: true,
     badge: 'bg-[#E3D9F0] text-[#5E4078] border-[#C3AEE0]',
     privateLabels: [],
-    x: 220, y: 210
+    x: 220, y: 210,
+    isHidden: false, isLocked: false, isDeleted: false
   },
   {
     id: 'c7', name: '윤소영', groups: ['g3', 'g4'],
@@ -406,7 +412,8 @@ export const FIXED_NODES = [
     isDetailUnlocked: true, isRecent: false, isMatchable: true,
     badge: 'bg-[#E3D9F0] text-[#5E4078] border-[#C3AEE0]',
     privateLabels: [],
-    x: 860, y: 520
+    x: 860, y: 520,
+    isHidden: false, isLocked: false, isDeleted: false
   },
   {
     id: 'c8', name: '정태민', groups: ['g2'],
@@ -462,7 +469,8 @@ export const FIXED_NODES = [
     isDetailUnlocked: false, isRecent: false, isMatchable: true,
     badge: 'bg-[#F0EBF5] text-[#5E4078] border-[#D1C5E0]',
     privateLabels: [],
-    x: 560, y: 310
+    x: 560, y: 310,
+    isHidden: false, isLocked: false, isDeleted: false
   },
   {
     id: 'c9', name: '오하나', groups: ['g5'],
@@ -518,7 +526,8 @@ export const FIXED_NODES = [
     isDetailUnlocked: false, isRecent: true, isMatchable: true,
     badge: 'bg-[#F0EBF5] text-[#5E4078] border-[#D1C5E0]',
     privateLabels: [],
-    x: 970, y: 260
+    x: 970, y: 260,
+    isHidden: false, isLocked: false, isDeleted: false
   },
   {
     id: 'c10', name: '송재원', groups: ['g1', 'g3'],
@@ -574,29 +583,8 @@ export const FIXED_NODES = [
     isDetailUnlocked: false, isRecent: false, isMatchable: false,
     badge: 'bg-[#E3D9F0] text-[#5E4078] border-[#C3AEE0]',
     privateLabels: [],
-    x: 600, y: 500
+    x: 600, y: 500,
+    isHidden: false, isLocked: false, isDeleted: false
   },
 
-  // ── 미확인 (pending) ──
-  {
-    id: 'p1', name: '이은진', groups: ['pending'],
-    score: '?', status: 'pending',
-    isRecent: false,
-    badge: 'bg-gray-100 text-gray-400 border-gray-300 border-dashed',
-    x: 150, y: 160
-  },
-  {
-    id: 'p2', name: '한재호', groups: ['pending'],
-    score: '?', status: 'pending',
-    isRecent: false,
-    badge: 'bg-gray-100 text-gray-400 border-gray-300 border-dashed',
-    x: 780, y: 170
-  },
-  {
-    id: 'p3', name: '나연서', groups: ['pending'],
-    score: '?', status: 'pending',
-    isRecent: true,
-    badge: 'bg-gray-100 text-gray-400 border-gray-300 border-dashed',
-    x: 1050, y: 550
-  },
 ];

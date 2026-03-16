@@ -29,7 +29,7 @@ export default function MapCanvas({
         const matchesGroup = node.groups.some(g => activeGroupIds.includes(g));
         if (!matchesGroup) return false;
       }
-      if (specialFilter === 'pendingOnly' && node.status !== 'pending') return false;
+      if (specialFilter === 'detailAvailable' && node.status !== 'checked') return false;
       if (specialFilter === 'detailAvailable' && (node.status !== 'checked' || node.isDetailUnlocked)) return false;
       if (specialFilter === 'matchRecommended' && !node.isMatchable) return false;
       if (q) {
@@ -272,7 +272,6 @@ export default function MapCanvas({
               </button>
             </div>
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#5E4078] border-2 border-white shadow-sm" />분석 완료</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-gray-200 border-2 border-gray-400 border-dashed opacity-70" />미확인</div>
             <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full border-2 border-emerald-400" />편안</div>
             <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full border-2 border-amber-400" />긴장</div>
             <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full border-2 border-gray-400" />거리감</div>
@@ -442,14 +441,13 @@ export default function MapCanvas({
           {nodeLayouts.map(inst => {
             if (!isNodeInstanceVisible(inst)) return null;
             const highlighted = isNodeHighlighted(inst.id);
-            const isPending = inst.status === 'pending';
             const enriched = nodeEnrichedData[inst.id];
             const ringColor = getStatusRingColor(enriched?.relationshipStatus);
             const isGhost = inst.isGhost;
 
             // 크기: 고스트는 약간 작게
-            let size = isPending ? 38 : 42;
-            if (inst.isDetailUnlocked && !isPending) size = 48;
+            let size = 42;
+            if (inst.isDetailUnlocked) size = 48;
             if (focusMode === 'node' && inst.id === focusedNodeId) size = 52;
             if (focusMode === 'group' && focusGroupId && inst.instanceGroupId === focusGroupId) size = 46;
             if (isGhost && focusMode !== 'group') size = Math.round(size * 0.85);
@@ -468,7 +466,7 @@ export default function MapCanvas({
               >
                 <div className="relative">
                   {/* 관계 상태 링 */}
-                  {ringColor && !isPending && !isGhost && (
+                  {ringColor && !isGhost && (
                     <div className="absolute rounded-full pointer-events-none"
                       style={{
                         width: `${size + 8}px`, height: `${size + 8}px`,
@@ -483,13 +481,13 @@ export default function MapCanvas({
                   {/* 메인 노드 원 */}
                   <div
                     className={`rounded-full flex items-center justify-center font-bold text-sm transition-all
-                      ${isPending ? 'bg-gray-50 text-gray-400 border-2 border-gray-300 border-dashed' : inst.badge}
+                      ${inst.badge}
                       ${isGhost && focusMode !== 'group' ? 'border-2 border-dashed border-[#C3AEE0]' : ''}
-                      ${inst.isDetailUnlocked && !isPending && !isGhost ? 'ring-2 ring-yellow-300 shadow-[0_0_8px_rgba(253,224,71,0.3)]' : 'shadow-md'}
+                      ${inst.isDetailUnlocked && !isGhost ? 'ring-2 ring-yellow-300 shadow-[0_0_8px_rgba(253,224,71,0.3)]' : 'shadow-md'}
                     `}
                     style={{ width: `${size}px`, height: `${size}px` }}
                   >
-                    {isPending ? <HelpCircle className="w-4 h-4 opacity-50" /> : inst.name.substring(0, 1)}
+                    {inst.name.substring(0, 1)}
                   </div>
 
                   {/* 고스트 링크 아이콘 (overview에서만) */}
@@ -500,14 +498,14 @@ export default function MapCanvas({
                   )}
 
                   {/* 다중 그룹 배지 (primary에만, 2그룹 이상) */}
-                  {!isGhost && inst.multiGroupCount >= 2 && !isPending && (
+                  {!isGhost && inst.multiGroupCount >= 2 && (
                     <div className="absolute -bottom-0.5 -right-1 bg-[#5E4078] text-white rounded-full text-[7px] w-3.5 h-3.5 flex items-center justify-center shadow-sm border border-white z-10 font-bold leading-none">
                       {inst.multiGroupCount}
                     </div>
                   )}
 
                   {/* 해금 배지 (소형, primary만) */}
-                  {!isPending && inst.isDetailUnlocked && !isGhost && (
+                  {inst.isDetailUnlocked && !isGhost && (
                     <div className="absolute -top-0.5 -right-1 bg-white rounded-full text-[7px] w-3.5 h-3.5 flex items-center justify-center shadow-sm border border-gray-100 z-10">🔓</div>
                   )}
                   {/* NEW 배지 (소형, primary만) */}
@@ -518,10 +516,10 @@ export default function MapCanvas({
 
                 {/* 이름 라벨 */}
                 <div className={`mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold shadow-sm border whitespace-nowrap transition-all duration-300
-                  ${isPending ? 'bg-gray-100/90 text-gray-500 border-gray-200' : 'bg-white/90 text-gray-700 border-gray-200'}
+                  bg-white/90 text-gray-700 border-gray-200
                   ${highlighted && !isGhost ? 'opacity-100' : highlighted && isGhost ? 'opacity-60' : 'opacity-0'}
                 `}>
-                  {isPending ? '미확인' : inst.name}
+                  {inst.name}
                 </div>
               </div>
             );
@@ -560,9 +558,8 @@ export default function MapCanvas({
                   const rc = getStatusRingColor(enriched?.relationshipStatus);
                   return rc ? <div className="absolute -inset-1 rounded-full" style={{ border: `2px solid ${rc}` }} /> : null;
                 })()}
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-base border
-                  ${focusedNode.status === 'pending' ? 'bg-gray-100 text-gray-400 border-gray-200' : focusedNode.badge}`}>
-                  {focusedNode.status === 'pending' ? <HelpCircle className="w-5 h-5 opacity-50" /> : focusedNode.name.charAt(0)}
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-base border ${focusedNode.badge}`}>
+                  {focusedNode.name.charAt(0)}
                 </div>
               </div>
               <div className="flex-1 min-w-0">

@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import {
   Users, Search, ChevronRight, ChevronLeft, HelpCircle,
   ArrowUpDown, Coins, MessageSquare, Sparkles, Tag, Lock, X, Shield,
-  BookOpen, BarChart3, Lightbulb, Heart
+  BookOpen, BarChart3, Lightbulb, Heart, EyeOff, Eye, Trash2, AlertTriangle
 } from 'lucide-react';
 import MapCanvas from '../components/MapCanvas';
 import {
@@ -27,16 +27,15 @@ export default function RelationMap({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortMode, setSortMode] = useState('recent');
   const [activeGroupIds, setActiveGroupIds] = useState(groups.map(g => g.id));
-  const [statusFilters] = useState(['checked', 'pending']);
+  const [statusFilters] = useState(['checked']);
   const [specialFilter, setSpecialFilter] = useState(null);
   const [focusedNodeId, setFocusedNodeId] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(0.8);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showMyProfile, setShowMyProfile] = useState(false);
   const [showUnlockConfirm, setShowUnlockConfirm] = useState(false);
-  const [showPendingInput, setShowPendingInput] = useState(false);
-  const [pendingForm, setPendingForm] = useState({ year: '1995', month: '01', day: '15', hour: '모름' });
-  const [isAnalyzingPending, setIsAnalyzingPending] = useState(false);
+  const [showHiddenNodes, setShowHiddenNodes] = useState(false);
+  const [showNodeDeleteConfirm, setShowNodeDeleteConfirm] = useState(false);
   const mapRef = useRef(null);
 
   // 그룹 추가 시 activeGroupIds 동기화
@@ -52,9 +51,10 @@ export default function RelationMap({
   const getSortedFilteredNodes = () => {
     const q = searchQuery.trim().toLowerCase();
     const filtered = nodes.filter(node => {
+      if (node.isDeleted) return false;
+      if (node.isHidden && !showHiddenNodes) return false;
       if (!statusFilters.includes(node.status)) return false;
       if (node.status === 'checked' && !node.groups.some(g => activeGroupIds.includes(g))) return false;
-      if (specialFilter === 'pendingOnly' && node.status !== 'pending') return false;
       if (specialFilter === 'detailAvailable' && (node.status !== 'checked' || node.isDetailUnlocked)) return false;
       if (specialFilter === 'matchRecommended' && !node.isMatchable) return false;
       if (q) {
@@ -242,7 +242,15 @@ export default function RelationMap({
             })()}
 
             <div className="p-4 flex justify-between items-center border-b border-gray-100 bg-gray-50/50 sticky top-0 z-10">
-              <span className="text-sm text-gray-500 font-medium">이름 및 요약</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 font-medium">이름 및 요약</span>
+                <button onClick={() => setShowHiddenNodes(p => !p)}
+                  className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-lg border transition-colors ${showHiddenNodes ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-400 border-gray-200'}`}
+                >
+                  {showHiddenNodes ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  {showHiddenNodes ? '숨김 표시 중' : '숨긴 인물'}
+                </button>
+              </div>
               <button onClick={cycleSortMode} className="flex items-center gap-1 text-xs font-bold text-[#5E4078] bg-[#F0EBF5] px-2 py-1.5 rounded-lg border border-[#D1C5E0] shadow-sm">
                 {SORT_LABELS[sortMode]} <ArrowUpDown className="w-3 h-3" />
               </button>
@@ -266,17 +274,17 @@ export default function RelationMap({
                   <div key={node.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition cursor-pointer relative" onClick={() => { setSelectedNode(node); setMapStep('detail'); }}>
                     <div className="flex items-center gap-4">
                       <div className="relative">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-base border ${node.status === 'pending' ? 'bg-gray-100 text-gray-400 border-gray-200' : 'border-white shadow-sm ' + node.badge}`}>
-                          {node.status === 'pending' ? <HelpCircle className="w-5 h-5 opacity-50" /> : node.name.charAt(0)}
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-base border border-white shadow-sm ${node.badge}`}>
+                          {node.name.charAt(0)}
                         </div>
                       </div>
                       <div className="min-w-0">
                         <p className="font-bold text-gray-800 text-sm flex items-center gap-1 flex-wrap">
                           {node.name}
-                          <span className="font-normal text-gray-400 text-xs ml-1">{node.roleLabel || '미확인'}</span>
+                          <span className="font-normal text-gray-400 text-xs ml-1">{node.roleLabel || ''}</span>
                           {node.isDetailUnlocked && <span className="text-[9px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full font-bold border border-emerald-100">해금</span>}
                         </p>
-                        {node.status !== 'pending' && (
+                        {(
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             {statusObj && statusStyle && (
                               <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
@@ -354,13 +362,6 @@ export default function RelationMap({
                         <p className="text-[11px] text-gray-400">골드 테두리가 빛나며, 상세 해설 확인 가능</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gray-100 border-2 border-gray-300 border-dashed flex items-center justify-center shrink-0"><HelpCircle className="w-5 h-5 text-gray-400 opacity-50" /></div>
-                      <div>
-                        <p className="text-xs font-bold text-gray-700">미확인 인물</p>
-                        <p className="text-[11px] text-gray-400">사주 정보가 아직 입력되지 않은 상태</p>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
@@ -411,7 +412,6 @@ export default function RelationMap({
 
   // === RENDER: detail ===
   if (mapStep === 'detail' && selectedNode) {
-    const isPending = selectedNode.status === 'pending';
     const nodeGroups = (selectedNode.groups || [])
       .map(gId => groups.find(g => g.id === gId))
       .filter(Boolean);
@@ -426,21 +426,14 @@ export default function RelationMap({
         <div className="px-4 space-y-3">
           {/* 프로필 카드 */}
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 text-center">
-            <div className={`w-20 h-20 rounded-full mx-auto mb-3 flex items-center justify-center font-bold text-2xl border-2 ${isPending ? 'bg-gray-100 text-gray-400 border-gray-200' : selectedNode.badge}`}>
-              {isPending ? <HelpCircle className="w-8 h-8 opacity-50" /> : selectedNode.name.charAt(0)}
+            <div className={`w-20 h-20 rounded-full mx-auto mb-3 flex items-center justify-center font-bold text-2xl border-2 ${selectedNode.badge}`}>
+              {selectedNode.name.charAt(0)}
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-1">{selectedNode.name}</h2>
-            {!isPending && (
-              <>
-                <span className="inline-block bg-[#F0EBF5] text-[#5E4078] text-xs font-bold px-3 py-1 rounded-full border border-[#E5DDF0] mb-3">
-                  {selectedNode.roleLabel || '역할 미정'}
-                </span>
-                <p className="text-[#5E4078] font-extrabold text-2xl mb-1">어울림 {selectedNode.score}점</p>
-              </>
-            )}
-            {isPending && (
-              <p className="text-gray-400 text-sm mt-2">사주 정보가 아직 입력되지 않았어요</p>
-            )}
+            <span className="inline-block bg-[#F0EBF5] text-[#5E4078] text-xs font-bold px-3 py-1 rounded-full border border-[#E5DDF0] mb-3">
+              {selectedNode.roleLabel || '역할 미정'}
+            </span>
+            <p className="text-[#5E4078] font-extrabold text-2xl mb-1">어울림 {selectedNode.score}점</p>
           </div>
 
           {/* 소속 그룹 */}
@@ -461,7 +454,7 @@ export default function RelationMap({
           )}
 
           {/* 기본 궁합 요약 (checked 상태만) */}
-          {!isPending && (
+          {(
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBE5F2]">
               <div className="flex items-center gap-2 mb-2.5">
                 <Sparkles className="w-4 h-4 text-[#5E4078]" />
@@ -481,7 +474,7 @@ export default function RelationMap({
           )}
 
           {/* 프라이빗 라벨 */}
-          {!isPending && (
+          {(
             <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBE5F2]">
               <div className="flex items-center gap-2 mb-2.5">
                 <Heart className="w-4 h-4 text-[#5E4078]" />
@@ -515,8 +508,58 @@ export default function RelationMap({
             </div>
           )}
 
+          {/* 인물 관리 (숨기기/잠금/삭제) */}
+          {(
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBE5F2]">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="w-4 h-4 text-gray-500" />
+                <p className="text-xs font-bold text-gray-600">인물 관리</p>
+              </div>
+              <div className="space-y-2">
+                {/* 숨기기 토글 */}
+                <button
+                  onClick={() => {
+                    const updated = !selectedNode.isHidden;
+                    setNodes(prev => prev.map(n => n.id === selectedNode.id ? { ...n, isHidden: updated } : n));
+                    setSelectedNode(prev => ({ ...prev, isHidden: updated }));
+                    showToast(updated ? '인물이 숨겨졌어요. 숨긴 인물 보기로 확인할 수 있어요.' : '인물 숨기기가 해제되었어요.');
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${selectedNode.isHidden ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}
+                >
+                  <EyeOff className={`w-4 h-4 ${selectedNode.isHidden ? 'text-amber-600' : 'text-gray-400'}`} />
+                  <span className={`text-[11px] font-bold ${selectedNode.isHidden ? 'text-amber-700' : 'text-gray-600'}`}>
+                    {selectedNode.isHidden ? '숨김 해제하기' : '이 인물 숨기기'}
+                  </span>
+                </button>
+                {/* 잠금 토글 */}
+                <button
+                  onClick={() => {
+                    const updated = !selectedNode.isLocked;
+                    setNodes(prev => prev.map(n => n.id === selectedNode.id ? { ...n, isLocked: updated } : n));
+                    setSelectedNode(prev => ({ ...prev, isLocked: updated }));
+                    showToast(updated ? '인물 정보가 잠금 처리되었어요.' : '인물 잠금이 해제되었어요.');
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${selectedNode.isLocked ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}
+                >
+                  <Lock className={`w-4 h-4 ${selectedNode.isLocked ? 'text-purple-600' : 'text-gray-400'}`} />
+                  <span className={`text-[11px] font-bold ${selectedNode.isLocked ? 'text-purple-700' : 'text-gray-600'}`}>
+                    {selectedNode.isLocked ? '잠금 해제하기' : '이 인물 잠그기'}
+                  </span>
+                </button>
+                {/* 삭제 버튼 */}
+                <button
+                  onClick={() => setShowNodeDeleteConfirm(true)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-rose-50 hover:border-rose-200 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4 text-gray-400" />
+                  <span className="text-[11px] font-bold text-gray-600">이 인물 삭제하기</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 최근 기록 타임라인 */}
-          {!isPending && (() => {
+          {(() => {
             const nodeEvents = diaryEvents
               .filter(ev => (ev.relatedPeople || []).some(p => p.id === selectedNode.id))
               .sort((a, b) => b.date.localeCompare(a.date))
@@ -557,7 +600,7 @@ export default function RelationMap({
           })()}
 
           {/* 감정 분포 */}
-          {!isPending && (() => {
+          {(() => {
             const enriched = nodeEnrichedData[selectedNode.id];
             if (!enriched || enriched.totalCount === 0) return null;
             const { positive, neutral, negative, totalCount } = enriched;
@@ -597,7 +640,7 @@ export default function RelationMap({
           })()}
 
           {/* 추천 액션 */}
-          {!isPending && (() => {
+          {(() => {
             const actions = getRecommendedActions(selectedNode.id, diaryEvents);
             if (actions.length === 0) return null;
             return (
@@ -617,8 +660,35 @@ export default function RelationMap({
             );
           })()}
 
+          {/* 사주 변경 재분석 경고 */}
+          {selectedNode.isDetailUnlocked && selectedNode.sajuDataChangedAt && (
+            <div className="bg-amber-50 rounded-2xl p-4 shadow-sm border border-amber-200 animate-fade-in">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-xs font-bold text-amber-800 mb-1">사주 정보가 변경되었어요</p>
+                  <p className="text-[11px] text-amber-600 leading-relaxed mb-3">
+                    {selectedNode.name}님의 사주 정보가 수정되었습니다. 기존 분석이 정확하지 않을 수 있어요.
+                  </p>
+                  <button
+                    onClick={() => {
+                      handleDeduct(150, 'hani', () => {
+                        setNodes(prev => prev.map(n => n.id === selectedNode.id ? { ...n, sajuDataChangedAt: null } : n));
+                        setSelectedNode(prev => ({ ...prev, sajuDataChangedAt: null }));
+                        showToast('재분석이 완료되었습니다!');
+                      });
+                    }}
+                    className="bg-amber-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center gap-2 hover:bg-amber-600 transition"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> 재분석하기 <Coins className="w-3.5 h-3.5 text-amber-200" /> 150 HANI (반값)
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 정밀 해설 영역 */}
-          {!isPending && selectedNode.isDetailUnlocked && selectedNode.detailReport ? (
+          {selectedNode.isDetailUnlocked && selectedNode.detailReport ? (
             /* ── 해금됨: 카드형 리포트 ── */
             <div className="space-y-3 animate-fade-in">
               {/* 리포트 헤더 */}
@@ -776,7 +846,7 @@ export default function RelationMap({
                 <p className="text-[11px] text-gray-700 leading-relaxed">{selectedNode.detailReport.longTermOutlook}</p>
               </div>
             </div>
-          ) : !isPending ? (
+          ) : (
             /* ── 미해금: 티저 + 잠금 ── */
             <div className="space-y-3">
               {/* 정밀 해설 티저 카드 */}
@@ -815,21 +885,16 @@ export default function RelationMap({
                 </div>
               </div>
             </div>
-          ) : null}
+          )}
 
           {/* 액션 버튼 */}
           <div className="space-y-2.5 pt-1 pb-4">
-            {isPending && (
-              <button onClick={() => setShowPendingInput(true)} className="w-full bg-[#5E4078] text-white py-4 rounded-xl font-bold shadow-md flex justify-center items-center gap-2 hover:bg-[#4A306D] transition">
-                <Sparkles className="w-4 h-4" /> 사주 정보 입력하고 궁합 보기
-              </button>
-            )}
-            {!isPending && !selectedNode.isDetailUnlocked && (
+            {!selectedNode.isDetailUnlocked && (
               <button onClick={handleUnlockDetail} className="w-full bg-[#2D2D2D] text-white py-4 rounded-xl font-bold shadow-md flex justify-center items-center gap-2 hover:bg-black transition">
                 정밀 궁합 해설 해금 <Coins className="w-4 h-4 text-yellow-400" /> 300 HANI
               </button>
             )}
-            {!isPending && selectedNode.isDetailUnlocked && (
+            {selectedNode.isDetailUnlocked && (
               <>
                 <button onClick={handleStartChat} className="w-full bg-[#5E4078] text-white py-3.5 rounded-xl font-bold shadow-md flex justify-center items-center gap-2 hover:bg-[#4A306D] transition">
                   <MessageSquare className="w-4 h-4" /> AI 하니에게 이 관계 더 물어보기
@@ -874,77 +939,35 @@ export default function RelationMap({
             </div>
           </div>
         )}
-        {/* Pending 사주 입력 모달 */}
-        {showPendingInput && selectedNode && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-end animate-fade-in" onClick={() => !isAnalyzingPending && setShowPendingInput(false)}>
-            <div className="bg-white w-full rounded-t-[2rem] p-5 pb-10 max-h-[80%] overflow-y-auto animate-fade-in-up" onClick={e => e.stopPropagation()}>
-              {isAnalyzingPending ? (
-                <div className="py-12 flex flex-col items-center justify-center animate-pulse">
-                  <Sparkles className="w-12 h-12 text-[#5E4078] mb-4" />
-                  <p className="font-bold text-gray-800 mb-2">{selectedNode.name}님과의 궁합 분석 중...</p>
-                  <p className="text-xs text-gray-500">사주 데이터를 대조하고 있어요</p>
+        {/* 인물 삭제 확인 모달 */}
+        {showNodeDeleteConfirm && selectedNode && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center animate-fade-in" onClick={() => setShowNodeDeleteConfirm(false)}>
+            <div className="bg-white rounded-3xl p-6 mx-6 w-full max-w-[340px] shadow-2xl animate-fade-in-up" onClick={e => e.stopPropagation()}>
+              <div className="text-center mb-5">
+                <div className="w-14 h-14 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Trash2 className="w-7 h-7 text-rose-500" />
                 </div>
-              ) : (
-                <>
-                  <div className="flex justify-between items-center mb-5">
-                    <h3 className="text-lg font-bold text-gray-900">{selectedNode.name}님 사주 정보</h3>
-                    <button onClick={() => setShowPendingInput(false)} className="bg-gray-100 p-2 rounded-full text-gray-500"><X className="w-4 h-4" /></button>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">출생 연도</label>
-                        <select className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078]" value={pendingForm.year} onChange={e => setPendingForm(prev => ({ ...prev, year: e.target.value }))}>
-                          {Array.from({ length: 50 }, (_, i) => String(2010 - i)).map(y => <option key={y} value={y}>{y}년</option>)}
-                        </select>
-                      </div>
-                      <div className="w-20">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">월</label>
-                        <select className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078]" value={pendingForm.month} onChange={e => setPendingForm(prev => ({ ...prev, month: e.target.value }))}>
-                          {['01','02','03','04','05','06','07','08','09','10','11','12'].map(m => <option key={m} value={m}>{m}월</option>)}
-                        </select>
-                      </div>
-                      <div className="w-20">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">일</label>
-                        <select className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078]" value={pendingForm.day} onChange={e => setPendingForm(prev => ({ ...prev, day: e.target.value }))}>
-                          {Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0')).map(d => <option key={d} value={d}>{d}일</option>)}
-                        </select>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-gray-500 mb-1">태어난 시간</label>
-                      <select className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078]" value={pendingForm.hour} onChange={e => setPendingForm(prev => ({ ...prev, hour: e.target.value }))}>
-                        <option value="모름">모름</option>
-                        <option value="자시">자시 (23:30~01:30)</option>
-                        <option value="축시">축시 (01:30~03:30)</option>
-                        <option value="인시">인시 (03:30~05:30)</option>
-                        <option value="묘시">묘시 (05:30~07:30)</option>
-                        <option value="진시">진시 (07:30~09:30)</option>
-                        <option value="사시">사시 (09:30~11:30)</option>
-                        <option value="오시">오시 (11:30~13:30)</option>
-                        <option value="미시">미시 (13:30~15:30)</option>
-                        <option value="신시">신시 (15:30~17:30)</option>
-                        <option value="유시">유시 (17:30~19:30)</option>
-                        <option value="술시">술시 (19:30~21:30)</option>
-                        <option value="해시">해시 (21:30~23:30)</option>
-                      </select>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setIsAnalyzingPending(true);
-                        setTimeout(() => {
-                          onConfirmPending(selectedNode.id, pendingForm);
-                          setIsAnalyzingPending(false);
-                          setShowPendingInput(false);
-                          setSelectedNode(prev => ({ ...prev, status: 'checked' }));
-                          setMapStep('main');
-                        }, 2000);
-                      }}
-                      className="w-full bg-[#5E4078] text-white font-bold py-4 rounded-xl shadow-lg hover:bg-[#4A306D] transition"
-                    >궁합 분석 시작</button>
-                  </div>
-                </>
-              )}
+                <h3 className="text-lg font-bold text-gray-900 mb-1">인물 삭제</h3>
+                <p className="text-sm text-gray-500"><strong>{selectedNode.name}</strong>님을 삭제하시겠어요?</p>
+              </div>
+              <div className="bg-amber-50 rounded-xl p-3 border border-amber-100 mb-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-amber-700 leading-relaxed">
+                    삭제해도 이 인물과 관련된 다이어리 기록은 유지됩니다. 관계맵과 그룹룸에서만 제외돼요.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2.5">
+                <button onClick={() => setShowNodeDeleteConfirm(false)} className="flex-1 bg-gray-100 text-gray-600 font-bold py-3.5 rounded-xl hover:bg-gray-200 transition">취소</button>
+                <button onClick={() => {
+                  setNodes(prev => prev.map(n => n.id === selectedNode.id ? { ...n, isDeleted: true } : n));
+                  setShowNodeDeleteConfirm(false);
+                  setMapStep('main');
+                  setSelectedNode(null);
+                  showToast('인물이 삭제되었어요. 다이어리 기록은 유지됩니다.');
+                }} className="flex-1 bg-rose-500 text-white font-bold py-3.5 rounded-xl hover:bg-rose-600 transition">삭제하기</button>
+              </div>
             </div>
           </div>
         )}
