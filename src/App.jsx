@@ -167,6 +167,7 @@ export default function App() {
               streakData={streakData}
               switchTab={switchTab}
               showToast={showToast}
+              savedResults={savedResults}
             />
           )}
 
@@ -227,7 +228,7 @@ export default function App() {
               </div>
               <div className="flex gap-2.5">
                 <button onClick={() => setPendingChatAction(null)} className="flex-1 bg-gray-100 text-gray-600 font-bold py-3.5 rounded-xl hover:bg-gray-200 transition">취소</button>
-                <button onClick={() => executeChatSwitch(pendingChatAction)} className="flex-1 bg-[#5E4078] text-white font-bold py-3.5 rounded-xl hover:bg-[#4A306D] transition">시작하기</button>
+                <button onClick={() => executeChatSwitch(pendingChatAction)} className="flex-1 bg-primary text-white font-bold py-3.5 rounded-xl hover:bg-primary-dark transition">시작하기</button>
               </div>
             </div>
           </div>

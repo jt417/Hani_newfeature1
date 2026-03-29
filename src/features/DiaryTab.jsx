@@ -239,11 +239,11 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
   // RENDER
   // ═══════════════════════════════════════════════════
   return (
-    <div className="flex flex-col h-full bg-[#F7F5FA] relative">
+    <div className="flex flex-col h-full bg-surface relative">
       <div className="flex-1 overflow-y-auto pb-4">
 
         {/* ═══ 1A: Streak Counter (top gradient banner) ═══ */}
-        <div className="bg-gradient-to-br from-[#5E4078] via-[#6B4F8A] to-[#4A306D] px-5 pt-5 pb-6 relative overflow-hidden">
+        <div className="bg-gradient-to-br from-primary via-primary-light to-primary-dark px-5 pt-5 pb-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/3" />
 
@@ -304,23 +304,23 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
           {/* ═══ 1B: Today's Ilwun Card ═══ */}
           <button
             onClick={() => setShowIlwunPopup(true)}
-            className="w-full bg-white rounded-2xl border border-[#EBE5F2] shadow-sm overflow-hidden text-left active:scale-[0.98] transition-transform"
+            className="w-full bg-white rounded-2xl border border-surface-line shadow-sm overflow-hidden text-left active:scale-[0.98] transition-transform"
           >
             <div className="flex">
               {/* Left accent border */}
-              <div className="w-1.5 bg-[#5E4078] rounded-l-2xl shrink-0" />
+              <div className="w-1.5 bg-primary rounded-l-2xl shrink-0" />
               <div className="flex-1 p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Sun className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs font-bold text-[#5E4078]">오늘의 일운</span>
+                    <span className="text-xs font-bold text-primary">오늘의 일운</span>
                   </div>
                   <span className="text-[10px] text-gray-400">탭하여 자세히 보기</span>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#F0EBF5] to-[#FAF7FD] flex items-center justify-center">
-                    <span className="text-lg font-extrabold text-[#5E4078]">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-surface-muted to-surface-light flex items-center justify-center">
+                    <span className="text-lg font-extrabold text-primary">
                       {todayIlwun.stemKr}{todayIlwun.branchKr}
                     </span>
                   </div>
@@ -340,7 +340,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
           </button>
 
           {/* ═══ 1C: Promotion Banner ═══ */}
-          <div className="bg-gradient-to-r from-[#5E4078] to-[#7C5A9B] rounded-2xl p-4 shadow-sm relative overflow-hidden">
+          <div className="bg-gradient-to-r from-primary to-primary-light rounded-2xl p-4 shadow-sm relative overflow-hidden">
             <div className="absolute right-2 top-2 opacity-20">
               <Sparkles className="w-16 h-16 text-white" />
             </div>
@@ -361,7 +361,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
               setDailyForm({ ...DIARY_DAILY_FORM });
               setShowDailyForm(true);
             }}
-            className="w-full bg-[#5E4078] text-white font-bold py-4 rounded-xl shadow-md flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-[#4A306D]"
+            className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-md flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-primary-dark"
           >
             <BookOpen className="w-5 h-5" />
             오늘 기록하기
@@ -374,7 +374,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
               setShowFortuneMapping(false);
               setShowPastForm(true);
             }}
-            className="w-full bg-white border-2 border-dashed border-[#C9B7DA] text-[#5E4078] font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-[#FAF7FD]"
+            className="w-full bg-white border-2 border-dashed border-surface-soft text-primary font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-surface-light"
           >
             <Plus className="w-5 h-5" />
             과거 사건 기록하기
@@ -405,12 +405,12 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                   return (
                     <div
                       key={ev.id}
-                      className="bg-white rounded-2xl border border-[#EBE5F2] shadow-sm px-4 py-3 animate-fade-in"
+                      className="bg-white rounded-2xl border border-surface-line shadow-sm px-4 py-3 animate-fade-in"
                     >
                       <div className="flex items-center gap-3">
                         {/* Date badge */}
-                        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#F0EBF5] flex flex-col items-center justify-center">
-                          <span className="text-[10px] font-bold text-[#5E4078] leading-none">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-surface-muted flex flex-col items-center justify-center">
+                          <span className="text-[10px] font-bold text-primary leading-none">
                             {formatDate(ev.date)}
                           </span>
                         </div>
@@ -420,7 +420,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                           <p className="text-xs font-bold text-gray-800 truncate">{displayTitle}</p>
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             {sipsinName && (
-                              <span className="text-[9px] bg-[#5E4078] text-white px-1.5 py-0.5 rounded-full font-bold">
+                              <span className="text-[9px] bg-primary text-white px-1.5 py-0.5 rounded-full font-bold">
                                 {sipsinName}({sipsinHanja})
                               </span>
                             )}
@@ -445,7 +445,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
               {sortedEvents.length > 5 && (
                 <button
                   onClick={() => setShowDashboard(true)}
-                  className="w-full text-center text-[11px] text-[#5E4078] font-bold py-3 mt-1 hover:text-[#4A306D] transition"
+                  className="w-full text-center text-[11px] text-primary font-bold py-3 mt-1 hover:text-primary-dark transition"
                 >
                   더보기 ({sortedEvents.length - 5}건)
                 </button>
@@ -462,16 +462,16 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
           )}
 
           {/* ═══ 2: Analytics Dashboard (접기/펼치기) ═══ */}
-          <div className="bg-white rounded-2xl border border-[#EBE5F2] shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-surface-line shadow-sm overflow-hidden">
             <button
               onClick={() => diaryEvents.length > 0 && setShowDashboard(p => !p)}
               className="w-full p-4 flex items-center justify-between"
             >
               <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#5E4078]" />
-                <span className="text-xs font-bold text-[#5E4078]">분석 대시보드</span>
+                <BarChart3 className="w-4 h-4 text-primary" />
+                <span className="text-xs font-bold text-primary">분석 대시보드</span>
                 {diaryEvents.length > 0 && (
-                  <span className="text-[9px] bg-[#F0EBF5] text-[#5E4078] px-2 py-0.5 rounded-full font-bold border border-[#E5DDF0]">
+                  <span className="text-[9px] bg-surface-muted text-primary px-2 py-0.5 rounded-full font-bold border border-surface-line">
                     {diaryEvents.filter(ev => ev.analyzed).length}건 분석됨
                   </span>
                 )}
@@ -490,16 +490,16 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-[11px] font-bold text-gray-700">감정 추이</p>
-                    <div className="flex bg-[#F0EBF5] rounded-lg p-0.5">
+                    <div className="flex bg-surface-muted rounded-lg p-0.5">
                       <button
                         onClick={() => setDashboardPeriod('weekly')}
-                        className={`text-[10px] font-bold px-3 py-1 rounded-md transition ${dashboardPeriod === 'weekly' ? 'bg-white text-[#5E4078] shadow-sm' : 'text-gray-500'}`}
+                        className={`text-[10px] font-bold px-3 py-1 rounded-md transition ${dashboardPeriod === 'weekly' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
                       >
                         주간
                       </button>
                       <button
                         onClick={() => setDashboardPeriod('monthly')}
-                        className={`text-[10px] font-bold px-3 py-1 rounded-md transition ${dashboardPeriod === 'monthly' ? 'bg-white text-[#5E4078] shadow-sm' : 'text-gray-500'}`}
+                        className={`text-[10px] font-bold px-3 py-1 rounded-md transition ${dashboardPeriod === 'monthly' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
                       >
                         월간
                       </button>
@@ -562,7 +562,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                           </span>
                           <div className="flex-1 bg-gray-100 rounded-full h-4 relative overflow-hidden">
                             <div
-                              className="h-full rounded-full bg-[#5E4078] transition-all duration-500"
+                              className="h-full rounded-full bg-primary transition-all duration-500"
                               style={{ width: `${Math.max((item.count / sipsinMax) * 100, 8)}%` }}
                             />
                           </div>
@@ -584,7 +584,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                       }} className="p-1 rounded-full hover:bg-gray-100 transition">
                         <ChevronLeft className="w-3.5 h-3.5 text-gray-500" />
                       </button>
-                      <span className="text-[11px] font-bold text-[#5E4078] min-w-[70px] text-center">
+                      <span className="text-[11px] font-bold text-primary min-w-[70px] text-center">
                         {heatmapYear}년 {heatmapMonth}월
                       </span>
                       <button onClick={() => {
@@ -616,7 +616,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                       >
                         <span className="text-[8px] font-bold text-gray-600">{cell.day}</span>
                         {cell.hasEntry && (
-                          <div className="absolute bottom-0.5 w-1 h-1 rounded-full bg-[#5E4078]" />
+                          <div className="absolute bottom-0.5 w-1 h-1 rounded-full bg-primary" />
                         )}
                       </div>
                     ))}
@@ -638,7 +638,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
 
                 {/* ─── 2D: 하니 인사이트 (Locked) ─── */}
                 <div className="relative">
-                  <div className="bg-gradient-to-br from-[#FAF7FD] to-[#F0EBF5] rounded-2xl p-4 border border-[#EFE7F7] opacity-70">
+                  <div className="bg-gradient-to-br from-surface-light to-surface-muted rounded-2xl p-4 border border-surface-line opacity-70">
                     <div className="flex items-center gap-2 mb-2">
                       <Lock className="w-4 h-4 text-gray-400" />
                       <p className="text-xs font-bold text-gray-500">하니 인사이트</p>
@@ -651,7 +651,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                     </p>
                   </div>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <button className="bg-[#5E4078] text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-2 active:scale-95 transition-transform">
+                    <button className="bg-primary text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-2 active:scale-95 transition-transform">
                       <Lock className="w-3.5 h-3.5" />
                       HANI PASS로 잠금 해제
                     </button>
@@ -661,7 +661,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                 {/* ─── 2E: 하니와 상담 시작 CTA ─── */}
                 <button
                   onClick={() => onStartDiaryChat()}
-                  className="w-full bg-[#5E4078] text-white rounded-xl py-3.5 text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-[#4A306D] transition-colors shadow-md active:scale-95 transition-transform"
+                  className="w-full bg-primary text-white rounded-xl py-3.5 text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-primary-dark transition-colors shadow-md active:scale-95 transition-transform"
                 >
                   <MessageSquare className="w-4 h-4" />
                   하니와 상담 시작
@@ -709,9 +709,9 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                   key={step}
                   className={`w-2.5 h-2.5 rounded-full transition-all ${
                     step === dailyStep
-                      ? 'bg-[#5E4078] w-6'
+                      ? 'bg-primary w-6'
                       : step < dailyStep
-                        ? 'bg-[#5E4078]'
+                        ? 'bg-primary'
                         : 'bg-gray-200'
                   }`}
                 />
@@ -743,10 +743,10 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                 </div>
 
                 {/* Today's ilwun for selected date */}
-                <div className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7]">
+                <div className="bg-surface-light rounded-xl p-3 border border-surface-line">
                   <div className="flex items-center gap-2 mb-1">
                     <Sun className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="text-[10px] font-bold text-[#5E4078]">이날의 일운</span>
+                    <span className="text-[10px] font-bold text-primary">이날의 일운</span>
                   </div>
                   <p className="text-[11px] text-gray-600">
                     {dailyIlwun.pillarText} · {dailyIlwun.element} 기운 · {dailyIlwun.seasonal.season}
@@ -789,7 +789,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
               <div className="space-y-5 animate-fade-in">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-3">
-                    오늘의 감정 강도는? <span className="text-[#5E4078]">{dailyForm.intensity}/5</span>
+                    오늘의 감정 강도는? <span className="text-primary">{dailyForm.intensity}/5</span>
                   </label>
                   <div className="flex items-center justify-center gap-3">
                     {[1, 2, 3, 4, 5].map(n => (
@@ -798,8 +798,8 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                         onClick={() => setDailyForm(prev => ({ ...prev, intensity: n }))}
                         className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all ${
                           dailyForm.intensity >= n
-                            ? 'bg-[#5E4078] text-white border-[#5E4078]'
-                            : 'bg-white text-gray-400 border-gray-200 hover:border-[#C9B7DA]'
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-white text-gray-400 border-gray-200 hover:border-surface-soft'
                         }`}
                       >
                         {n}
@@ -841,7 +841,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                           }}
                           className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
                             isActive
-                              ? 'bg-[#5E4078] text-white border-[#5E4078]'
+                              ? 'bg-primary text-white border-primary'
                               : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                           }`}
                         >
@@ -858,8 +858,8 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
 
                   {/* Sipsin tooltip */}
                   {sipsinTooltip && (
-                    <div className="mt-2 bg-[#FAF7FD] rounded-lg px-3 py-2 border border-[#EFE7F7] animate-fade-in">
-                      <p className="text-[11px] text-[#5E4078] font-bold">
+                    <div className="mt-2 bg-surface-light rounded-lg px-3 py-2 border border-surface-line animate-fade-in">
+                      <p className="text-[11px] text-primary font-bold">
                         {sipsinTooltip.sipsin}({sipsinTooltip.hanja})
                       </p>
                       <p className="text-[10px] text-gray-500">{sipsinTooltip.relation}</p>
@@ -878,7 +878,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                         setDailyForm(prev => ({ ...prev, memo: e.target.value }));
                       }
                     }}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078] resize-none h-24"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-primary resize-none h-24"
                     placeholder="오늘 있었던 일을 자유롭게 적어주세요"
                   />
                 </div>
@@ -898,14 +898,14 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
               {dailyStep < 3 ? (
                 <button
                   onClick={() => setDailyStep(s => s + 1)}
-                  className="flex-1 bg-[#5E4078] text-white font-bold py-3.5 rounded-xl hover:bg-[#4A306D] transition"
+                  className="flex-1 bg-primary text-white font-bold py-3.5 rounded-xl hover:bg-primary-dark transition"
                 >
                   다음
                 </button>
               ) : (
                 <button
                   onClick={handleDailySave}
-                  className="flex-1 bg-[#5E4078] text-white font-bold py-3.5 rounded-xl hover:bg-[#4A306D] transition shadow-md"
+                  className="flex-1 bg-primary text-white font-bold py-3.5 rounded-xl hover:bg-primary-dark transition shadow-md"
                 >
                   저장
                 </button>
@@ -934,7 +934,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                 <div className="flex-1">
                   <label className="block text-xs font-bold text-gray-500 mb-1">발생 연도</label>
                   <select
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078]"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-primary"
                     value={pastForm.year}
                     onChange={e => setPastForm(prev => ({ ...prev, year: e.target.value }))}
                   >
@@ -944,7 +944,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                 <div className="flex-1">
                   <label className="block text-xs font-bold text-gray-500 mb-1">발생 월</label>
                   <select
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078]"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-primary"
                     value={pastForm.month}
                     onChange={e => setPastForm(prev => ({ ...prev, month: e.target.value }))}
                   >
@@ -968,7 +968,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                         onClick={() => setPastForm(prev => ({ ...prev, eventType: type }))}
                         className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
                           isActive
-                            ? 'bg-[#5E4078] text-white border-[#5E4078]'
+                            ? 'bg-primary text-white border-primary'
                             : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                         }`}
                       >
@@ -979,8 +979,8 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                   })}
                 </div>
                 {DIARY_SIPSIN_MAP[pastForm.eventType] && (
-                  <div className="mt-2 bg-[#FAF7FD] rounded-lg px-3 py-2 border border-[#EFE7F7]">
-                    <p className="text-[11px] text-[#5E4078] font-bold mb-0.5">
+                  <div className="mt-2 bg-surface-light rounded-lg px-3 py-2 border border-surface-line">
+                    <p className="text-[11px] text-primary font-bold mb-0.5">
                       {DIARY_SIPSIN_MAP[pastForm.eventType].sipsin}({DIARY_SIPSIN_MAP[pastForm.eventType].hanja}) — {DIARY_SIPSIN_MAP[pastForm.eventType].elementRelation}
                     </p>
                     <p className="text-[10px] text-gray-500">{DIARY_SIPSIN_MAP[pastForm.eventType].desc}</p>
@@ -1001,7 +1001,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                       setPastForm(prev => ({ ...prev, title: e.target.value }));
                     }
                   }}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-[#5E4078]"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-primary"
                   placeholder="예: 직장 내 큰 마찰, 연인과 이별"
                 />
               </div>
@@ -1018,7 +1018,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                       setPastForm(prev => ({ ...prev, detail: e.target.value }));
                     }
                   }}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078] resize-none h-24"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-primary resize-none h-24"
                   placeholder="당시에 어떤 일이 있었는지, 감정과 결과를 구체적으로 적어주세요."
                 />
               </div>
@@ -1050,7 +1050,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
               {/* Impact: 1-5 */}
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-2">
-                  영향도 <span className="text-[#5E4078]">{pastForm.impact}/5</span>
+                  영향도 <span className="text-primary">{pastForm.impact}/5</span>
                 </label>
                 <div className="flex gap-2">
                   {[1, 2, 3, 4, 5].map(n => (
@@ -1059,7 +1059,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                       onClick={() => setPastForm(prev => ({ ...prev, impact: n }))}
                       className={`flex-1 py-2.5 rounded-xl font-bold text-sm border transition-colors ${
                         pastForm.impact === n
-                          ? 'bg-[#5E4078] text-white border-[#5E4078]'
+                          ? 'bg-primary text-white border-primary'
                           : 'bg-white text-gray-500 border-gray-200'
                       }`}
                     >
@@ -1073,7 +1073,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
               <div>
                 <button
                   onClick={() => setShowFortuneMapping(p => !p)}
-                  className="flex items-center gap-2 text-xs font-bold text-[#5E4078] py-2"
+                  className="flex items-center gap-2 text-xs font-bold text-primary py-2"
                 >
                   <Star className="w-3.5 h-3.5" />
                   운세 매핑 보기
@@ -1084,11 +1084,11 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                 </button>
 
                 {showFortuneMapping && fortuneMapping && (
-                  <div className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7] space-y-2 animate-fade-in">
+                  <div className="bg-surface-light rounded-xl p-3 border border-surface-line space-y-2 animate-fade-in">
                     {[fortuneMapping.daewun, fortuneMapping.sewun, fortuneMapping.wolwun].map(fortune => (
                       <div key={fortune.name} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-bold text-[#5E4078]">{fortune.name}</span>
+                          <span className="text-[11px] font-bold text-primary">{fortune.name}</span>
                           <span className="text-[11px] text-gray-600">{fortune.label}</span>
                         </div>
                         <div className="flex gap-0.5">
@@ -1113,7 +1113,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
               {/* Save button */}
               <button
                 onClick={handlePastSave}
-                className="w-full bg-[#5E4078] text-white font-bold py-4 rounded-xl shadow-lg hover:bg-[#4A306D] transition mt-2"
+                className="w-full bg-primary text-white font-bold py-4 rounded-xl shadow-lg hover:bg-primary-dark transition mt-2"
               >
                 기록 저장하고 분석하기
               </button>
@@ -1137,8 +1137,8 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
 
             {/* Pillar display */}
             <div className="flex items-center gap-4 mb-5">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#F0EBF5] to-[#FAF7FD] flex items-center justify-center border border-[#E5DDF0]">
-                <span className="text-2xl font-extrabold text-[#5E4078]">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-surface-muted to-surface-light flex items-center justify-center border border-surface-line">
+                <span className="text-2xl font-extrabold text-primary">
                   {todayIlwun.stemKr}{todayIlwun.branchKr}
                 </span>
               </div>
@@ -1151,13 +1151,13 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
             </div>
 
             {/* Element + Season */}
-            <div className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7] mb-4">
+            <div className="bg-surface-light rounded-xl p-3 border border-surface-line mb-4">
               <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-3.5 h-3.5 text-[#5E4078]" />
-                <span className="text-[11px] font-bold text-[#5E4078]">오행 기운</span>
+                <Zap className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[11px] font-bold text-primary">오행 기운</span>
               </div>
               <p className="text-[11px] text-gray-600 leading-relaxed">
-                오늘은 <strong className="text-[#5E4078]">{todayIlwun.element}</strong> 기운이 작용합니다.
+                오늘은 <strong className="text-primary">{todayIlwun.element}</strong> 기운이 작용합니다.
               </p>
               <p className="text-[11px] text-gray-500 leading-relaxed mt-1">
                 {todayIlwun.seasonal.desc}
@@ -1191,10 +1191,10 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
             </div>
 
             {/* Interaction */}
-            <div className="bg-white rounded-xl p-3 border border-[#EBE5F2] mb-4">
+            <div className="bg-white rounded-xl p-3 border border-surface-line mb-4">
               <div className="flex items-center gap-2 mb-2">
-                <Info className="w-3.5 h-3.5 text-[#5E4078]" />
-                <span className="text-[11px] font-bold text-[#5E4078]">
+                <Info className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[11px] font-bold text-primary">
                   오늘의 작용: {todayIlwun.interaction.type === '없음' ? '평온' : todayIlwun.interaction.type}
                 </span>
               </div>
@@ -1203,7 +1203,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {todayIlwun.interaction.effects.map((eff, i) => (
-                  <span key={i} className="text-[10px] bg-[#F0EBF5] text-[#5E4078] px-2 py-0.5 rounded-full font-bold border border-[#E5DDF0]">
+                  <span key={i} className="text-[10px] bg-surface-muted text-primary px-2 py-0.5 rounded-full font-bold border border-surface-line">
                     {eff}
                   </span>
                 ))}
@@ -1211,7 +1211,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
             </div>
 
             {/* Summary */}
-            <div className="bg-gradient-to-br from-[#FAF7FD] to-[#F0EBF5] rounded-xl p-3 border border-[#EFE7F7]">
+            <div className="bg-gradient-to-br from-surface-light to-surface-muted rounded-xl p-3 border border-surface-line">
               <p className="text-[11px] text-gray-600 leading-relaxed">{todayIlwun.summary}</p>
             </div>
           </div>
@@ -1231,7 +1231,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
 
             <h3 className="text-lg font-bold text-gray-900 mb-2">기록이 저장되었어요</h3>
 
-            <div className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7] mb-4 text-left">
+            <div className="bg-surface-light rounded-xl p-3 border border-surface-line mb-4 text-left">
               <p className="text-[11px] text-gray-500 mb-1">{savedEventSummary.date}</p>
               {savedEventSummary.emotion && (
                 <div className="flex items-center gap-2 mb-1">
@@ -1242,14 +1242,14 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
               {savedEventSummary.eventTypes && savedEventSummary.eventTypes.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1">
                   {savedEventSummary.eventTypes.map(type => (
-                    <span key={type} className="text-[10px] bg-[#F0EBF5] text-[#5E4078] px-2 py-0.5 rounded-full font-bold border border-[#E5DDF0]">
+                    <span key={type} className="text-[10px] bg-surface-muted text-primary px-2 py-0.5 rounded-full font-bold border border-surface-line">
                       {type}
                     </span>
                   ))}
                 </div>
               )}
               {savedEventSummary.sipsinName && (
-                <p className="text-[10px] text-[#5E4078] font-bold mt-2">
+                <p className="text-[10px] text-primary font-bold mt-2">
                   {savedEventSummary.sipsinName}({savedEventSummary.sipsinHanja}) 분석이 반영되었어요
                 </p>
               )}
@@ -1260,7 +1260,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                 setShowSaveConfirm(false);
                 setSavedEventSummary(null);
               }}
-              className="w-full bg-[#5E4078] text-white font-bold py-3.5 rounded-xl hover:bg-[#4A306D] transition"
+              className="w-full bg-primary text-white font-bold py-3.5 rounded-xl hover:bg-primary-dark transition"
             >
               확인
             </button>
@@ -1298,7 +1298,7 @@ export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onSta
                   setDailyForm({ ...DIARY_DAILY_FORM });
                   setShowDailyForm(true);
                 }}
-                className="flex-1 bg-[#5E4078] text-white font-bold py-3.5 rounded-xl hover:bg-[#4A306D] transition"
+                className="flex-1 bg-primary text-white font-bold py-3.5 rounded-xl hover:bg-primary-dark transition"
               >
                 오늘 기록하기
               </button>

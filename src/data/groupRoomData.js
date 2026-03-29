@@ -4,10 +4,12 @@
 
 // ─── 모임 종류 ──────────────────────────────────────────
 export const GROUP_CATEGORIES = [
-  { key: 'friend',    label: '친구/지인',        emoji: '👯' },
-  { key: 'work',      label: '직장/커리어',      emoji: '💼' },
-  { key: 'hobby',     label: '취미/라이프스타일', emoji: '🎯' },
-  { key: 'family',    label: '가족/생활',        emoji: '🏠' },
+  { key: 'friend',    label: '친구',           emoji: '🤝' },
+  { key: 'lover',     label: '연인',           emoji: '💕' },
+  { key: 'work',      label: '직장 동료',      emoji: '💼' },
+  { key: 'family',    label: '가족',           emoji: '🏠' },
+  { key: 'business',  label: '사업 파트너',    emoji: '🚀' },
+  { key: 'etc',       label: '기타',           emoji: '✏️' },
 ];
 
 export const GROUP_RELATION_TYPES = {
@@ -19,25 +21,28 @@ export const GROUP_RELATION_TYPES = {
     { key: 'travel',        label: '여행 멤버',     emoji: '✈️' },
     { key: 'drink',         label: '술친구',        emoji: '🍻' },
   ],
+  lover: [
+    { key: 'couple',        label: '커플',          emoji: '💑' },
+    { key: 'longTerm',      label: '장기 연애',     emoji: '💍' },
+    { key: 'marriage',      label: '결혼 준비',     emoji: '💒' },
+  ],
   work: [
     { key: 'team',          label: '회사 팀',       emoji: '🏢' },
     { key: 'projectTF',     label: '프로젝트 TF',   emoji: '📋' },
     { key: 'coworker',      label: '동기 모임',     emoji: '🤝' },
     { key: 'study',         label: '스터디',        emoji: '📖' },
-    { key: 'sideProject',   label: '사이드 프로젝트', emoji: '💡' },
-  ],
-  hobby: [
-    { key: 'sports',        label: '운동 크루',     emoji: '💪' },
-    { key: 'outdoor',       label: '아웃도어',      emoji: '🏔️' },
-    { key: 'culture',       label: '문화/감성',     emoji: '🎨' },
-    { key: 'food',          label: '미식 모임',     emoji: '🍽️' },
-    { key: 'club',          label: '동호회',        emoji: '👥' },
-    { key: 'social',        label: '소셜링',        emoji: '⚡' },
   ],
   family: [
     { key: 'family',        label: '가족',          emoji: '👨‍👩‍👧‍👦' },
     { key: 'siblings',      label: '자매/형제',     emoji: '👫' },
-    { key: 'roommate',      label: '자취 메이트',   emoji: '🔑' },
+  ],
+  business: [
+    { key: 'startup',       label: '스타트업',      emoji: '🚀' },
+    { key: 'partner',       label: '사업 파트너',   emoji: '🤝' },
+    { key: 'investor',      label: '투자/멘토',     emoji: '💡' },
+  ],
+  etc: [
+    { key: 'custom',        label: '직접 입력',     emoji: '✏️' },
   ],
 };
 
@@ -47,30 +52,6 @@ export const COUPLE_RELATION_TYPES = [
   { key: 'longTerm',        label: '장기 연애',     emoji: '💍' },
   { key: 'reunion',         label: '재회 고민',     emoji: '🔄' },
   { key: 'marriage',        label: '결혼 준비',     emoji: '💒' },
-];
-
-// ─── 분위기 프리셋 ──────────────────────────────────────
-export const MOOD_PRESETS = [
-  { key: 'comfortable', label: '편안함',      emoji: '😌' },
-  { key: 'awkward',     label: '어색함',      emoji: '😅' },
-  { key: 'excited',     label: '기대됨',      emoji: '🤩' },
-  { key: 'sensitive',   label: '살짝 예민함', emoji: '😬' },
-];
-
-// ─── 궁금한 포인트 (의도 태그) ──────────────────────────
-export const GROUP_INTENT_TAGS = [
-  { key: 'moodMaker',   label: '누가 분위기 메이커인지 궁금해요',           emoji: '🎤' },
-  { key: 'awkwardWhy',   label: '우리 모임이 왜 어색해지는지 알고 싶어요',   emoji: '🤔' },
-  { key: 'buffer',       label: '누가 갈등을 완충하는지 알고 싶어요',        emoji: '🛡️' },
-  { key: 'connector',    label: '누가 사람들을 연결하는지 궁금해요',         emoji: '🔗' },
-  { key: 'tension',      label: '은근한 긴장감이 어디서 오는지 궁금해요',    emoji: '⚡' },
-];
-
-export const COUPLE_INTENT_TAGS = [
-  { key: 'expression',  label: '우리의 표현 방식 차이가 궁금해요',          emoji: '💬' },
-  { key: 'pacing',      label: '누가 더 천천히 다가가는 타입인지 알고 싶어요', emoji: '🐢' },
-  { key: 'chemistry',   label: '우리 케미가 어떤 타입인지 궁금해요',         emoji: '✨' },
-  { key: 'conflict',    label: '싸울 때 어떤 패턴인지 알고 싶어요',          emoji: '🌪️' },
 ];
 
 // ─── 분석 중 단계 메시지 ────────────────────────────────
@@ -162,7 +143,7 @@ export const RESULT_METRICS = {
 
 // ─── 색상 매핑 ──────────────────────────────────────────
 export const ROLE_COLOR_STYLES = {
-  purple:  { bg: 'bg-[#F7F5FA]',  border: 'border-[#EBE5F2]',  text: 'text-[#5E4078]' },
+  purple:  { bg: 'bg-surface',  border: 'border-surface-line',  text: 'text-primary' },
   green:   { bg: 'bg-green-50',   border: 'border-green-100',  text: 'text-green-700' },
   blue:    { bg: 'bg-blue-50',    border: 'border-blue-100',   text: 'text-blue-700' },
   orange:  { bg: 'bg-orange-50',  border: 'border-orange-100', text: 'text-orange-700' },

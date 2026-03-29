@@ -18,9 +18,9 @@ export default function BottomNav({ activeTab, switchTab }) {
           <button
             key={key}
             onClick={() => switchTab(key)}
-            className={`flex flex-col items-center gap-1.5 w-1/5 transition-colors ${isActive ? 'text-[#5E4078]' : 'text-gray-400 hover:text-gray-600'}`}
+            className={`flex flex-col items-center gap-1.5 w-1/5 transition-colors ${isActive ? 'text-primary' : 'text-gray-400 hover:text-gray-600'}`}
           >
-            <Icon className={`w-6 h-6 ${isActive ? 'fill-[#EBE5F2]' : ''}`} />
+            <Icon className={`w-6 h-6 ${isActive ? 'fill-surface-line' : ''}`} />
             <span className="text-[10px] font-medium">{label}</span>
           </button>
         );
