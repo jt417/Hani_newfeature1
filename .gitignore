@@ -1,6 +1,5 @@
 node_modules/
 dist/
-만세력엔진2/
 .DS_Store
 *.local
 .claude/
