@@ -1,1053 +1,1308 @@
 import React, { useState, useMemo } from 'react';
-import { BookOpen, Activity, Sparkles, Plus, X, MessageSquare, Trash2, Edit3, UserPlus, BarChart3, Target, TrendingUp, ChevronDown, ChevronUp, BookMarked, Compass, Zap, Sun, Calendar, ChevronLeft, ChevronRight, Heart } from 'lucide-react';
+import { BookOpen, Plus, X, MessageSquare, BarChart3, Target, Calendar, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Sparkles, Flame, Lock, Star, Sun, Zap, Info, Check } from 'lucide-react';
 import {
-  DIARY_EVENT_TYPES, DIARY_INITIAL_FORM, DIARY_SIPSIN_MAP, PILLAR_POSITIONS,
-  EFFECT_DETAILS, SEASON_DYNAMICS, YEAR_OPTIONS, getDiaryPatternSummary, generateDiaryAnalysis
+  DIARY_EVENT_TYPES, DIARY_SIPSIN_MAP, PILLAR_POSITIONS,
+  EFFECT_DETAILS, SEASON_DYNAMICS, YEAR_OPTIONS, generateDiaryAnalysis, getDiaryPatternSummary,
+  EMOTION_SCALE, STREAK_BADGES, computeStreak, getTodayIlwun, getFortuneMapping,
+  getCalendarHeatmapData, getEmotionGraphData, getSipsinDistribution,
+  DIARY_DAILY_FORM, DIARY_LIFE_EVENT_FORM
 } from '../data/diaryData';
-import {
-  MOOD_LABELS, QUICK_KEYWORDS, DRAIN_TRIGGERS, RECOVERY_TRIGGERS,
-  generateCheckInReflection, getMonthlyReport
-} from '../data/relationUtils';
+import { MOOD_LABELS, summarizeEmotionFlow } from '../data/relationUtils';
 
+// ─── 감정 뱃지 컬러 ─────────────────────────────────
 const EMOTION_COLORS = {
   '긍정': 'bg-emerald-50 text-emerald-600 border-emerald-200',
   '중립': 'bg-gray-50 text-gray-500 border-gray-200',
-  '부정': 'bg-rose-50 text-rose-600 border-rose-200'
+  '부정': 'bg-rose-50 text-rose-600 border-rose-200',
 };
 
-export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onStartDiaryChat, relatedNodes = [] }) {
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ ...DIARY_INITIAL_FORM });
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
-  const [selectedRelatedIds, setSelectedRelatedIds] = useState([]);
+// ─── 합충형파해 뱃지 컬러 ───────────────────────────
+const EFFECT_BAR_COLORS = {
+  '충': 'bg-amber-400',
+  '형': 'bg-rose-400',
+  '합': 'bg-emerald-400',
+  '파': 'bg-purple-400',
+  '해': 'bg-blue-400',
+};
+
+const EFFECT_DOT_COLORS = {
+  '충': 'bg-amber-400',
+  '형': 'bg-rose-400',
+  '합': 'bg-emerald-400',
+  '파': 'bg-purple-400',
+  '해': 'bg-blue-400',
+};
+
+export default function DiaryTab({ diaryEvents, setDiaryEvents, showToast, onStartDiaryChat, handleDeduct, streakData }) {
+  // ─── State ──────────────────────────────────────────
+  const [showDailyForm, setShowDailyForm] = useState(false);
+  const [showPastForm, setShowPastForm] = useState(false);
+  const [dailyStep, setDailyStep] = useState(0);
+  const [dailyForm, setDailyForm] = useState({ ...DIARY_DAILY_FORM });
+  const [pastForm, setPastForm] = useState({ ...DIARY_LIFE_EVENT_FORM });
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showIlwunPopup, setShowIlwunPopup] = useState(false);
+  const [showMissedPopup, setShowMissedPopup] = useState(true);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [savedEventSummary, setSavedEventSummary] = useState(null);
+  const [dashboardPeriod, setDashboardPeriod] = useState('weekly');
+  const [heatmapMonth, setHeatmapMonth] = useState(new Date().getMonth() + 1);
+  const [heatmapYear, setHeatmapYear] = useState(new Date().getFullYear());
+  const [showFortuneMapping, setShowFortuneMapping] = useState(false);
+  const [sipsinTooltip, setSipsinTooltip] = useState(null);
 
-  // ─── 빠른 기록 상태 ─────────────────────────────────
-  const [showQuickRecord, setShowQuickRecord] = useState(false);
-  const [quickForm, setQuickForm] = useState({
-    moodLabel: '', keywords: [], relatedPersonIds: [], memo: '', energyLevel: 3,
-  });
+  // ─── Derived data (useMemo) ────────────────────────
+  const todayIlwun = useMemo(() => getTodayIlwun(), []);
+  const emotionGraphData = useMemo(() => getEmotionGraphData(diaryEvents, dashboardPeriod), [diaryEvents, dashboardPeriod]);
+  const sipsinDist = useMemo(() => getSipsinDistribution(diaryEvents), [diaryEvents]);
+  const heatmapData = useMemo(() => getCalendarHeatmapData(diaryEvents, heatmapYear, heatmapMonth), [diaryEvents, heatmapYear, heatmapMonth]);
+  const sortedEvents = useMemo(() => [...diaryEvents].sort((a, b) => b.date.localeCompare(a.date)), [diaryEvents]);
 
-  // ─── 체크인 상태 ───────────────────────────────────
-  const [checkIn, setCheckIn] = useState(null);
-  const [showCheckIn, setShowCheckIn] = useState(false);
-  const [checkInForm, setCheckInForm] = useState({
-    moodLabel: '', energyLevel: 3, concernPersonId: '', drainTrigger: '', recoveryTrigger: '',
-  });
+  const streakInfo = streakData || computeStreak(diaryEvents);
+  const nextBadge = STREAK_BADGES.find(b => b.days > (streakInfo.longest || 0)) || STREAK_BADGES[STREAK_BADGES.length - 1];
+  const badgeProgress = nextBadge ? Math.min(((streakInfo.current || 0) / nextBadge.days) * 100, 100) : 100;
 
-  // ─── 월간 리포트 상태 ─────────────────────────────
-  const [showMonthlyReport, setShowMonthlyReport] = useState(false);
-  const [reportMonth, setReportMonth] = useState({
-    year: new Date().getFullYear(), month: new Date().getMonth() + 1,
-  });
+  // ─── Fortune mapping for past event form ──────────
+  const fortuneMapping = useMemo(() => {
+    if (!showFortuneMapping) return null;
+    return getFortuneMapping(pastForm.year, pastForm.month);
+  }, [showFortuneMapping, pastForm.year, pastForm.month]);
 
-  const summaryTags = getDiaryPatternSummary(diaryEvents);
+  // ─── Heatmap helper: first day of month offset ────
+  const heatmapFirstDayOffset = useMemo(() => {
+    const firstDay = new Date(heatmapYear, heatmapMonth - 1, 1).getDay();
+    return firstDay;
+  }, [heatmapYear, heatmapMonth]);
 
-  // ─── 대시보드 통계 ─────────────────────────────────
-  const dashboardStats = useMemo(() => {
-    if (diaryEvents.length === 0) return null;
-    const sipsinCounts = {};
-    DIARY_EVENT_TYPES.forEach(t => { sipsinCounts[t] = 0; });
-    diaryEvents.forEach(ev => { if (sipsinCounts[ev.eventType] !== undefined) sipsinCounts[ev.eventType]++; });
-    const effectCounts = { '충': 0, '형': 0, '합': 0, '파': 0, '해': 0 };
-    diaryEvents.forEach(ev => { (ev.analysis?.triggeredEffects || []).forEach(e => { if (effectCounts[e] !== undefined) effectCounts[e]++; }); });
-    const maxEffectCount = Math.max(...Object.values(effectCounts), 1);
-    const emotionCounts = { '긍정': 0, '중립': 0, '부정': 0 };
-    diaryEvents.forEach(ev => { if (emotionCounts[ev.emotion] !== undefined) emotionCounts[ev.emotion]++; });
-    const pillarCounts = { '년주': 0, '월주': 0, '일주': 0, '시주': 0 };
-    diaryEvents.forEach(ev => { const key = ev.analysis?.pillar?.key; if (key && pillarCounts[key] !== undefined) pillarCounts[key]++; });
-    const elementCounts = { '木': 0, '火': 0, '土': 0, '金': 0, '水': 0 };
-    diaryEvents.forEach(ev => { const el = ev.analysis?.seasonalContext?.element; if (el && elementCounts[el] !== undefined) elementCounts[el]++; });
-    const avgIntensity = (diaryEvents.reduce((s, ev) => s + ev.intensity, 0) / diaryEvents.length).toFixed(1);
-    const allTags = {};
-    diaryEvents.forEach(ev => { (ev.analysis?.patternTags || []).forEach(tag => { allTags[tag] = (allTags[tag] || 0) + 1; }); });
-    const sortedTags = Object.entries(allTags).sort((a, b) => b[1] - a[1]);
-    const dominantSipsin = Object.entries(sipsinCounts).sort((a, b) => b[1] - a[1]).filter(([, c]) => c > 0);
-    const topSipsinKey = dominantSipsin[0]?.[0];
-    const topSipsinData = topSipsinKey ? DIARY_SIPSIN_MAP[topSipsinKey] : null;
-    const dominantEffect = Object.entries(effectCounts).sort((a, b) => b[1] - a[1])[0];
-    return {
-      sipsinCounts, dominantSipsin, topSipsinData,
-      effectCounts, maxEffectCount, dominantEffect: dominantEffect ? { key: dominantEffect[0], count: dominantEffect[1] } : null,
-      emotionCounts, pillarCounts, elementCounts, avgIntensity, sortedTags,
-      totalEvents: diaryEvents.length
+  // ─── Max bar value for emotion graph ──────────────
+  const emotionGraphMax = useMemo(() => {
+    return Math.max(...emotionGraphData.map(d => d.total), 1);
+  }, [emotionGraphData]);
+
+  // ─── sipsin distribution max ──────────────────────
+  const sipsinMax = useMemo(() => {
+    return Math.max(...sipsinDist.map(s => s.count), 1);
+  }, [sipsinDist]);
+
+  // ─── Heatmap color helper ─────────────────────────
+  const getHeatmapColor = (score, hasEntry) => {
+    if (!hasEntry) return 'bg-gray-100';
+    if (score >= 1.5) return 'bg-emerald-400';
+    if (score >= 0.5) return 'bg-emerald-200';
+    if (score >= 0) return 'bg-gray-300';
+    if (score >= -0.5) return 'bg-rose-200';
+    return 'bg-rose-400';
+  };
+
+  // ─── Date format helper ───────────────────────────
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    if (dateStr.length === 10) {
+      const parts = dateStr.split('-');
+      return `${parts[1]}/${parts[2]}`;
+    }
+    if (dateStr.length === 7) {
+      const parts = dateStr.split('-');
+      return `${parts[0]}년 ${parseInt(parts[1])}월`;
+    }
+    return dateStr;
+  };
+
+  const formatFullDate = (dateStr) => {
+    if (!dateStr) return '';
+    if (dateStr.length === 10) {
+      const d = new Date(dateStr);
+      const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+      return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${dayNames[d.getDay()]})`;
+    }
+    if (dateStr.length === 7) {
+      const parts = dateStr.split('-');
+      return `${parts[0]}년 ${parseInt(parts[1])}월`;
+    }
+    return dateStr;
+  };
+
+  // ─── Daily Form: navigate date ────────────────────
+  const navigateDailyDate = (delta) => {
+    const current = new Date(dailyForm.date);
+    current.setDate(current.getDate() + delta);
+    const dateStr = current.toISOString().slice(0, 10);
+    setDailyForm(prev => ({ ...prev, date: dateStr }));
+  };
+
+  // ─── Daily Form: get ilwun for selected date ──────
+  const dailyIlwun = useMemo(() => {
+    try {
+      return getTodayIlwun(dailyForm.date);
+    } catch {
+      return todayIlwun;
+    }
+  }, [dailyForm.date, todayIlwun]);
+
+  // ─── Daily Form: Save ─────────────────────────────
+  const handleDailySave = () => {
+    const emotionEntry = EMOTION_SCALE[dailyForm.emotionScore] || EMOTION_SCALE[3];
+    const emotionLabel = dailyForm.emotionScore >= 3 ? '긍정' : dailyForm.emotionScore <= 1 ? '부정' : '중립';
+
+    let analysis = null;
+    if (dailyForm.eventTypes.length > 0) {
+      // Use first selected event type for primary analysis
+      analysis = generateDiaryAnalysis(
+        dailyForm.eventTypes[0],
+        dailyForm.date.slice(0, 4),
+        dailyForm.date.slice(5, 7),
+        dailyForm.intensity,
+        emotionLabel
+      );
+    }
+
+    const newEvent = {
+      id: Date.now(),
+      date: dailyForm.date,
+      eventType: dailyForm.eventTypes[0] || '',
+      title: dailyForm.eventTypes.length > 0
+        ? dailyForm.eventTypes.join(', ')
+        : (emotionEntry.label || '일상 기록'),
+      memo: dailyForm.memo,
+      intensity: dailyForm.intensity,
+      emotion: emotionLabel,
+      analyzed: !!analysis,
+      analysis,
+      mode: 'daily',
+      emotionScore: dailyForm.emotionScore,
+      eventTypes: dailyForm.eventTypes,
     };
-  }, [diaryEvents]);
 
-  // 년도별 그루핑
-  const groupedEvents = useMemo(() => {
-    const grouped = {};
-    diaryEvents.forEach(ev => {
-      const year = ev.date.split('-')[0];
-      if (!grouped[year]) grouped[year] = [];
-      grouped[year].push(ev);
+    setDiaryEvents(prev => [newEvent, ...prev]);
+
+    setSavedEventSummary({
+      date: formatFullDate(dailyForm.date),
+      emotion: emotionEntry,
+      eventTypes: dailyForm.eventTypes,
+      sipsinName: analysis?.sipsin?.name || null,
+      sipsinHanja: analysis?.sipsin?.hanja || null,
     });
-    return Object.entries(grouped).sort((a, b) => b[0] - a[0]);
-  }, [diaryEvents]);
-
-  // 월간 리포트 데이터
-  const monthlyReportData = useMemo(() => {
-    if (!showMonthlyReport) return null;
-    return getMonthlyReport(reportMonth.year, reportMonth.month, diaryEvents, relatedNodes);
-  }, [showMonthlyReport, reportMonth, diaryEvents, relatedNodes]);
-
-  // ─── 깊이 기록 저장 ───────────────────────────────
-  const handleSave = () => {
-    if (!form.title.trim() || !form.memo.trim()) {
-      showToast('사건 제목과 상세 내용을 입력해주세요.');
-      return;
-    }
-    setIsAnalyzing(true);
-    setTimeout(() => {
-      const analysis = generateDiaryAnalysis(form.eventType, form.year, form.month, form.intensity, form.emotion);
-      const relatedPeople = selectedRelatedIds.map(id => relatedNodes.find(n => n.id === id)).filter(Boolean).map(n => ({ id: n.id, name: n.name }));
-      if (editingId) {
-        setDiaryEvents(prev => prev.map(ev =>
-          ev.id === editingId
-            ? { ...ev, date: `${form.year}-${form.month.padStart(2, '0')}`, eventType: form.eventType, title: form.title, memo: form.memo, intensity: form.intensity, emotion: form.emotion, analysis, relatedPeople }
-            : ev
-        ));
-        showToast('다이어리가 수정되었고, 십신 패턴 분석이 갱신되었어요.');
-      } else {
-        const newEvent = {
-          id: Date.now(), date: `${form.year}-${form.month.padStart(2, '0')}`,
-          eventType: form.eventType, title: form.title, memo: form.memo,
-          intensity: form.intensity, emotion: form.emotion,
-          analyzed: true, analysis, relatedPeople, mode: 'deep'
-        };
-        setDiaryEvents(prev => [newEvent, ...prev]);
-        showToast('다이어리가 저장되었고, 십신 기반 발현 분석에 반영되었어요.');
-      }
-      setIsAnalyzing(false);
-      setShowForm(false);
-      setEditingId(null);
-      setForm({ ...DIARY_INITIAL_FORM });
-      setSelectedRelatedIds([]);
-    }, 2000);
+    setShowSaveConfirm(true);
+    setShowDailyForm(false);
+    setDailyStep(0);
+    setDailyForm({ ...DIARY_DAILY_FORM });
   };
 
-  // ─── 빠른 기록 저장 ───────────────────────────────
-  const handleQuickSave = () => {
-    if (!quickForm.moodLabel) {
-      showToast('기분을 선택해주세요.');
+  // ─── Past Event Form: Save ────────────────────────
+  const handlePastSave = () => {
+    if (!pastForm.title.trim()) {
+      showToast('사건 제목을 입력해주세요.');
       return;
     }
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    const relatedPeople = quickForm.relatedPersonIds
-      .map(id => relatedNodes.find(n => n.id === id))
-      .filter(Boolean)
-      .map(n => ({ id: n.id, name: n.name }));
-    const positiveLabels = ['편안함', '설렘', '뿌듯함', '회복감'];
-    const negativeLabels = ['예민함', '서운함', '답답함'];
-    const emotion = positiveLabels.includes(quickForm.moodLabel) ? '긍정'
-      : negativeLabels.includes(quickForm.moodLabel) ? '부정' : '중립';
-    const newEvent = {
-      id: Date.now(), date: dateStr, eventType: '', title: '',
-      memo: quickForm.memo, mode: 'quick', moodLabel: quickForm.moodLabel,
-      energyLevel: quickForm.energyLevel, keywords: quickForm.keywords,
-      intensity: quickForm.energyLevel, emotion, analyzed: false, relatedPeople,
-    };
-    setDiaryEvents(prev => [newEvent, ...prev]);
-    setShowQuickRecord(false);
-    setQuickForm({ moodLabel: '', keywords: [], relatedPersonIds: [], memo: '', energyLevel: 3 });
-    showToast('오늘의 기분이 기록되었어요.');
-  };
 
-  // ─── 체크인 저장 ──────────────────────────────────
-  const handleCheckInSave = () => {
-    if (!checkInForm.moodLabel) {
-      showToast('기분을 선택해주세요.');
-      return;
-    }
-    const concernPerson = checkInForm.concernPersonId
-      ? relatedNodes.find(n => n.id === checkInForm.concernPersonId)?.name || null
-      : null;
-    const aiReflection = generateCheckInReflection(
-      checkInForm.moodLabel, checkInForm.energyLevel, concernPerson,
-      { drain: checkInForm.drainTrigger, recovery: checkInForm.recoveryTrigger }
+    const dateStr = `${pastForm.year}-${pastForm.month.padStart(2, '0')}`;
+    const analysis = generateDiaryAnalysis(
+      pastForm.eventType,
+      pastForm.year,
+      pastForm.month,
+      pastForm.impact,
+      pastForm.emotionRecall
     );
-    setCheckIn({ ...checkInForm, concernPerson, aiReflection });
-    setShowCheckIn(false);
 
-    // 체크인 데이터로 빠른 기록 자동 생성
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    const positiveLabels = ['편안함', '설렘', '뿌듯함', '회복감'];
-    const negativeLabels = ['예민함', '서운함', '답답함'];
-    const emotion = positiveLabels.includes(checkInForm.moodLabel) ? '긍정'
-      : negativeLabels.includes(checkInForm.moodLabel) ? '부정' : '중립';
-    const relatedPeople = checkInForm.concernPersonId
-      ? [relatedNodes.find(n => n.id === checkInForm.concernPersonId)].filter(Boolean).map(n => ({ id: n.id, name: n.name }))
-      : [];
-    const keywords = [checkInForm.drainTrigger, checkInForm.recoveryTrigger].filter(Boolean);
     const newEvent = {
-      id: Date.now() + 1, date: dateStr, eventType: '', title: '',
-      memo: `체크인: ${checkInForm.moodLabel}`, mode: 'quick',
-      moodLabel: checkInForm.moodLabel, energyLevel: checkInForm.energyLevel,
-      keywords, intensity: checkInForm.energyLevel, emotion,
-      analyzed: false, relatedPeople,
+      id: Date.now(),
+      date: dateStr,
+      eventType: pastForm.eventType,
+      title: pastForm.title,
+      memo: pastForm.detail,
+      intensity: pastForm.impact,
+      emotion: pastForm.emotionRecall,
+      analyzed: true,
+      analysis,
+      mode: 'deep',
     };
+
     setDiaryEvents(prev => [newEvent, ...prev]);
-    showToast('오늘의 체크인이 완료되었어요.');
+
+    setSavedEventSummary({
+      date: `${pastForm.year}년 ${parseInt(pastForm.month)}월`,
+      emotion: null,
+      eventTypes: [pastForm.eventType],
+      sipsinName: analysis?.sipsin?.name || null,
+      sipsinHanja: analysis?.sipsin?.hanja || null,
+    });
+    setShowSaveConfirm(true);
+    setShowPastForm(false);
+    setPastForm({ ...DIARY_LIFE_EVENT_FORM });
+    setShowFortuneMapping(false);
   };
 
-  const handleEdit = (ev) => {
-    if (ev.mode === 'quick') return; // 빠른 기록은 수정 불가
-    const [year, month] = ev.date.split('-');
-    setForm({ ...DIARY_INITIAL_FORM, year, month, eventType: ev.eventType, title: ev.title, memo: ev.memo, intensity: ev.intensity, emotion: ev.emotion });
-    setEditingId(ev.id);
-    setSelectedRelatedIds((ev.relatedPeople || []).map(p => p.id));
-    setShowForm(true);
-  };
+  // ─── Missed day check ────────────────────────────
+  const shouldShowMissedPopup = showMissedPopup && streakInfo.current === 0 && diaryEvents.length > 0;
 
-  const handleDelete = (id) => {
-    setDiaryEvents(prev => prev.filter(ev => ev.id !== id));
-    setDeleteConfirmId(null);
-    showToast('기록이 삭제되었어요.');
-  };
-
-  const handleCloseForm = () => {
-    if (isAnalyzing) return;
-    setShowForm(false);
-    setEditingId(null);
-    setForm({ ...DIARY_INITIAL_FORM });
-  };
-
-  const selectedSipsin = DIARY_SIPSIN_MAP[form.eventType];
-
+  // ═══════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════
   return (
     <div className="flex flex-col h-full bg-[#F7F5FA] relative">
-      {/* ─── 상단 배너 ─── */}
-      <div className="bg-gradient-to-br from-[#5E4078] to-[#7C5A9B] px-5 py-5 text-white rounded-b-[2rem] shadow-md relative overflow-hidden">
-        <div className="absolute right-0 top-0 opacity-10">
-          <BookOpen className="w-32 h-32 -mr-4 -mt-4" />
-        </div>
-        <div className="relative z-10">
-          <h2 className="text-xl font-bold mb-1">다이어리</h2>
-          <p className="text-[11px] text-purple-100 leading-relaxed">
-            기록이 쌓일수록 사주 분석이 더 정확해져요.
-          </p>
-        </div>
-      </div>
+      <div className="flex-1 overflow-y-auto pb-4">
 
-      <div className="p-4 space-y-4 flex-1 overflow-y-auto mt-1">
+        {/* ═══ 1A: Streak Counter (top gradient banner) ═══ */}
+        <div className="bg-gradient-to-br from-[#5E4078] via-[#6B4F8A] to-[#4A306D] px-5 pt-5 pb-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/3" />
 
-        {/* ═══ 오늘의 체크인 ═══ */}
-        {!checkIn ? (
-          <button onClick={() => setShowCheckIn(true)}
-            className="w-full bg-gradient-to-r from-[#FAF7FD] to-[#F0EBF5] border border-[#EBE5F2] text-[#5E4078] font-bold py-5 rounded-2xl shadow-sm flex flex-col items-center gap-1 hover:shadow-md transition"
-          >
-            <Sun className="w-6 h-6 text-amber-400" />
-            <span className="text-sm">오늘의 체크인</span>
-            <span className="text-[10px] text-gray-400 font-normal">오늘 기분과 에너지를 30초 안에 기록해보세요</span>
-          </button>
-        ) : (
-          <div className="bg-white rounded-2xl p-4 border border-[#EBE5F2] shadow-sm animate-fade-in">
+          <div className="relative z-10">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Sun className="w-4 h-4 text-amber-400" />
-                <p className="text-xs font-bold text-[#5E4078]">오늘의 체크인</p>
-              </div>
-              <button onClick={() => { setCheckIn(null); setShowCheckIn(true); setCheckInForm({ moodLabel: '', energyLevel: 3, concernPersonId: '', drainTrigger: '', recoveryTrigger: '' }); }}
-                className="text-[10px] text-gray-400 font-bold">다시 하기</button>
-            </div>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-2xl">{MOOD_LABELS.find(m => m.label === checkIn.moodLabel)?.emoji}</span>
               <div>
-                <p className="text-sm font-bold text-gray-800">{checkIn.moodLabel}</p>
-                <p className="text-[10px] text-gray-400">에너지 {checkIn.energyLevel}/5{checkIn.concernPerson ? ` · ${checkIn.concernPerson}` : ''}</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span className="text-white/60 text-[10px] font-bold tracking-wider">HANI DIARY</span>
+                </div>
+                <h2 className="text-white text-lg font-extrabold leading-snug">
+                  사주 다이어리
+                </h2>
+              </div>
+
+              {/* Streak badge */}
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm rounded-full px-3 py-1.5">
+                  <Flame className="w-4 h-4 text-orange-300" />
+                  <span className="text-white text-xs font-bold">
+                    {streakInfo.current > 0 ? `${streakInfo.current}일 연속` : '오늘 시작'}
+                  </span>
+                </div>
               </div>
             </div>
-            {checkIn.aiReflection && (
-              <div className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7]">
-                <div className="flex items-center gap-1 mb-1">
-                  <Sparkles className="w-3 h-3 text-[#7C3AED]" />
-                  <p className="text-[10px] font-bold text-[#7C3AED]">하니의 한마디</p>
+
+            {/* Earned badges */}
+            {streakInfo.earnedBadges && streakInfo.earnedBadges.length > 0 && (
+              <div className="flex gap-1.5 mb-2">
+                {streakInfo.earnedBadges.map(badge => (
+                  <span key={badge.days} className="text-[10px] bg-white/15 text-white px-2 py-0.5 rounded-full font-bold">
+                    {badge.emoji} {badge.label}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Next badge progress bar */}
+            {nextBadge && streakInfo.current < nextBadge.days && (
+              <div className="mt-1">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-white/50">다음 배지: {nextBadge.emoji} {nextBadge.label}</span>
+                  <span className="text-[10px] text-white/50">{streakInfo.current}/{nextBadge.days}일</span>
                 </div>
-                <p className="text-[11px] text-gray-600 leading-relaxed">{checkIn.aiReflection}</p>
+                <div className="w-full h-1.5 bg-white/15 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-300 to-orange-400 rounded-full transition-all duration-500"
+                    style={{ width: `${badgeProgress}%` }}
+                  />
+                </div>
               </div>
             )}
           </div>
-        )}
+        </div>
 
-        {/* ═══ 대시보드 ═══ */}
-        <div className="bg-white rounded-2xl border border-[#EBE5F2] shadow-sm overflow-hidden">
-          <button onClick={() => diaryEvents.length > 0 && setShowDashboard(p => !p)} className="w-full p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-[#5E4078]" />
-              <p className="text-xs font-bold text-[#5E4078]">십신 발현 패턴 대시보드</p>
-              {dashboardStats && (
-                <span className="text-[9px] bg-[#F0EBF5] text-[#5E4078] px-2 py-0.5 rounded-full font-bold border border-[#E5DDF0]">
-                  {dashboardStats.totalEvents}건
-                </span>
-              )}
+        <div className="px-4 mt-4 space-y-4">
+
+          {/* ═══ 1B: Today's Ilwun Card ═══ */}
+          <button
+            onClick={() => setShowIlwunPopup(true)}
+            className="w-full bg-white rounded-2xl border border-[#EBE5F2] shadow-sm overflow-hidden text-left active:scale-[0.98] transition-transform"
+          >
+            <div className="flex">
+              {/* Left accent border */}
+              <div className="w-1.5 bg-[#5E4078] rounded-l-2xl shrink-0" />
+              <div className="flex-1 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Sun className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-bold text-[#5E4078]">오늘의 일운</span>
+                  </div>
+                  <span className="text-[10px] text-gray-400">탭하여 자세히 보기</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#F0EBF5] to-[#FAF7FD] flex items-center justify-center">
+                    <span className="text-lg font-extrabold text-[#5E4078]">
+                      {todayIlwun.stemKr}{todayIlwun.branchKr}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-900">{todayIlwun.pillarText}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                      {todayIlwun.element} 기운 · {todayIlwun.seasonal.season} · {todayIlwun.interaction.type === '없음' ? '평온' : todayIlwun.interaction.type}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-gray-500 mt-2 leading-relaxed">
+                  {todayIlwun.interaction.desc}
+                </p>
+              </div>
             </div>
-            {diaryEvents.length > 0 && (
-              showDashboard ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />
-            )}
           </button>
 
-          {!showDashboard && (
-            <div className="px-4 pb-4 -mt-1">
-              <div className="flex flex-wrap gap-2">
-                {summaryTags.length > 0 ? summaryTags.map(tag => (
-                  <span key={tag} className="px-3 py-1.5 rounded-full bg-[#F0EBF5] text-[#5E4078] text-[11px] font-bold border border-[#E5DDF0]">{tag}</span>
-                )) : (
-                  <span className="text-xs text-gray-400">아직 패턴 데이터가 부족해요. 사건을 더 기록해보세요.</span>
+          {/* ═══ 1C: Promotion Banner ═══ */}
+          <div className="bg-gradient-to-r from-[#5E4078] to-[#7C5A9B] rounded-2xl p-4 shadow-sm relative overflow-hidden">
+            <div className="absolute right-2 top-2 opacity-20">
+              <Sparkles className="w-16 h-16 text-white" />
+            </div>
+            <div className="relative z-10">
+              <p className="text-white text-xs font-bold mb-1">
+                기록할수록 사주 상담이 더 정확해져요
+              </p>
+              <p className="text-white/60 text-[10px] leading-relaxed">
+                일상을 기록하면 하니가 더 정확한 사주 분석을 해드려요
+              </p>
+            </div>
+          </div>
+
+          {/* ═══ 1D: 오늘 기록하기 CTA ═══ */}
+          <button
+            onClick={() => {
+              setDailyStep(0);
+              setDailyForm({ ...DIARY_DAILY_FORM });
+              setShowDailyForm(true);
+            }}
+            className="w-full bg-[#5E4078] text-white font-bold py-4 rounded-xl shadow-md flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-[#4A306D]"
+          >
+            <BookOpen className="w-5 h-5" />
+            오늘 기록하기
+          </button>
+
+          {/* ═══ 1E: 과거 사건 기록하기 ═══ */}
+          <button
+            onClick={() => {
+              setPastForm({ ...DIARY_LIFE_EVENT_FORM });
+              setShowFortuneMapping(false);
+              setShowPastForm(true);
+            }}
+            className="w-full bg-white border-2 border-dashed border-[#C9B7DA] text-[#5E4078] font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-[#FAF7FD]"
+          >
+            <Plus className="w-5 h-5" />
+            과거 사건 기록하기
+          </button>
+
+          {/* ═══ 1F: Recent Records Timeline ═══ */}
+          {sortedEvents.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-bold text-gray-900">
+                  {diaryEvents.length}건의 기록
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {sortedEvents.slice(0, 5).map((ev) => {
+                  const isQuick = ev.mode === 'quick';
+                  const isDaily = ev.mode === 'daily';
+                  const emotionClass = EMOTION_COLORS[ev.emotion] || EMOTION_COLORS['중립'];
+                  const sipsinName = ev.analysis?.sipsin?.name;
+                  const sipsinHanja = ev.analysis?.sipsin?.hanja;
+                  const displayTitle = isQuick
+                    ? (ev.memo || ev.moodLabel || '빠른 기록')
+                    : isDaily
+                      ? (ev.eventTypes?.join(', ') || ev.memo || '일상 기록')
+                      : (ev.title || ev.eventType || '기록');
+
+                  return (
+                    <div
+                      key={ev.id}
+                      className="bg-white rounded-2xl border border-[#EBE5F2] shadow-sm px-4 py-3 animate-fade-in"
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Date badge */}
+                        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#F0EBF5] flex flex-col items-center justify-center">
+                          <span className="text-[10px] font-bold text-[#5E4078] leading-none">
+                            {formatDate(ev.date)}
+                          </span>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-800 truncate">{displayTitle}</p>
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            {sipsinName && (
+                              <span className="text-[9px] bg-[#5E4078] text-white px-1.5 py-0.5 rounded-full font-bold">
+                                {sipsinName}({sipsinHanja})
+                              </span>
+                            )}
+                            {ev.memo && !isQuick && (
+                              <span className="text-[10px] text-gray-400 truncate max-w-[120px]">
+                                {ev.memo.slice(0, 30)}{ev.memo.length > 30 ? '...' : ''}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Emotion badge */}
+                        <span className={`flex-shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${emotionClass}`}>
+                          {ev.emotion}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {sortedEvents.length > 5 && (
+                <button
+                  onClick={() => setShowDashboard(true)}
+                  className="w-full text-center text-[11px] text-[#5E4078] font-bold py-3 mt-1 hover:text-[#4A306D] transition"
+                >
+                  더보기 ({sortedEvents.length - 5}건)
+                </button>
+              )}
+            </div>
+          )}
+
+          {diaryEvents.length === 0 && (
+            <div className="text-center py-10">
+              <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm font-bold text-gray-400 mb-1">아직 기록이 없어요</p>
+              <p className="text-xs text-gray-300">위의 버튼으로 첫 기록을 시작해보세요</p>
+            </div>
+          )}
+
+          {/* ═══ 2: Analytics Dashboard (접기/펼치기) ═══ */}
+          <div className="bg-white rounded-2xl border border-[#EBE5F2] shadow-sm overflow-hidden">
+            <button
+              onClick={() => diaryEvents.length > 0 && setShowDashboard(p => !p)}
+              className="w-full p-4 flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-[#5E4078]" />
+                <span className="text-xs font-bold text-[#5E4078]">분석 대시보드</span>
+                {diaryEvents.length > 0 && (
+                  <span className="text-[9px] bg-[#F0EBF5] text-[#5E4078] px-2 py-0.5 rounded-full font-bold border border-[#E5DDF0]">
+                    {diaryEvents.filter(ev => ev.analyzed).length}건 분석됨
+                  </span>
                 )}
               </div>
-              {summaryTags.length > 0 && (
-                <p className="text-[10px] text-gray-400 mt-2">탭하여 상세 분석 대시보드를 확인하세요</p>
+              {diaryEvents.length > 0 && (
+                showDashboard
+                  ? <ChevronUp className="w-4 h-4 text-gray-400" />
+                  : <ChevronDown className="w-4 h-4 text-gray-400" />
               )}
-            </div>
-          )}
+            </button>
 
-          {/* ─── 펼친 대시보드 ─── */}
-          {showDashboard && dashboardStats && (
-            <div className="px-4 pb-5 space-y-5 animate-fade-in">
-              {/* 1. AI 종합 해석 */}
-              {dashboardStats.topSipsinData && (
-                <div className="bg-gradient-to-br from-[#FAF7FD] to-[#F0EBF5] rounded-xl p-4 border border-[#EFE7F7]">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-4 h-4 text-[#7C3AED]" />
-                    <p className="text-[11px] font-bold text-[#7C3AED]">고전 기반 종합 해석</p>
-                  </div>
-                  <p className="text-[12px] text-gray-600 leading-relaxed mb-3">
-                    {dashboardStats.totalEvents}건의 기록을 분석한 결과, 당신은{' '}
-                    <strong className="text-[#5E4078]">{dashboardStats.topSipsinData.sipsin}({dashboardStats.topSipsinData.hanja})</strong>{' '}
-                    영역의 사건이 가장 많습니다.
-                    {dashboardStats.topSipsinData.elementRelation}이 삶에 자주 작용하며,{' '}
-                    {dashboardStats.dominantEffect && (
-                      <><strong className="text-[#5E4078]">{EFFECT_DETAILS[dashboardStats.dominantEffect.key]?.name}</strong> 작용에 가장 민감하게 반응합니다.</>
-                    )}
-                  </p>
-                  {dashboardStats.topSipsinData.classicalQuotes[0] && (
-                    <div className="bg-white/60 rounded-lg px-3 py-2 border border-[#E5DDF0]">
-                      <p className="text-[11px] text-[#5E4078] font-medium italic leading-relaxed">"{dashboardStats.topSipsinData.classicalQuotes[0].text}"</p>
-                      <p className="text-[9px] text-gray-400 mt-1">— {dashboardStats.topSipsinData.classicalQuotes[0].source}</p>
+            {showDashboard && diaryEvents.length > 0 && (
+              <div className="px-4 pb-5 space-y-6 animate-fade-in">
+
+                {/* ─── 2A: Emotion Graph ─── */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[11px] font-bold text-gray-700">감정 추이</p>
+                    <div className="flex bg-[#F0EBF5] rounded-lg p-0.5">
+                      <button
+                        onClick={() => setDashboardPeriod('weekly')}
+                        className={`text-[10px] font-bold px-3 py-1 rounded-md transition ${dashboardPeriod === 'weekly' ? 'bg-white text-[#5E4078] shadow-sm' : 'text-gray-500'}`}
+                      >
+                        주간
+                      </button>
+                      <button
+                        onClick={() => setDashboardPeriod('monthly')}
+                        className={`text-[10px] font-bold px-3 py-1 rounded-md transition ${dashboardPeriod === 'monthly' ? 'bg-white text-[#5E4078] shadow-sm' : 'text-gray-500'}`}
+                      >
+                        월간
+                      </button>
                     </div>
-                  )}
-                </div>
-              )}
-
-              {/* 2. 십신 분포 */}
-              <div>
-                <div className="flex items-center gap-2 mb-3"><Compass className="w-3.5 h-3.5 text-[#5E4078]" /><p className="text-[11px] font-bold text-gray-700">십신(十神) 사건 분포</p></div>
-                <div className="space-y-1.5">
-                  {dashboardStats.dominantSipsin.slice(0, 5).map(([type, count]) => {
-                    const data = DIARY_SIPSIN_MAP[type];
-                    const pct = Math.round((count / dashboardStats.totalEvents) * 100);
-                    return (
-                      <div key={type} className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-gray-500 w-16 shrink-0 truncate">{data?.sipsin || type}</span>
-                        <div className="flex-1 bg-gray-100 rounded-full h-4 relative overflow-hidden">
-                          <div className="h-full rounded-full bg-[#5E4078] transition-all duration-500" style={{ width: `${Math.max(pct, 8)}%` }} />
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-gray-500">{count}건</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 3. 합충형파해 빈도 */}
-              <div>
-                <div className="flex items-center gap-2 mb-3"><Activity className="w-3.5 h-3.5 text-[#5E4078]" /><p className="text-[11px] font-bold text-gray-700">합충형파해 발현 빈도</p></div>
-                <div className="space-y-2">
-                  {['충', '형', '합', '파', '해'].map(key => {
-                    const count = dashboardStats.effectCounts[key];
-                    const detail = EFFECT_DETAILS[key];
-                    const pct = Math.round((count / dashboardStats.maxEffectCount) * 100);
-                    const colorMap = { '충': 'bg-amber-400', '형': 'bg-rose-400', '합': 'bg-emerald-400', '파': 'bg-purple-400', '해': 'bg-blue-400' };
-                    return (
-                      <div key={key} className="flex items-center gap-2.5">
-                        <span className="text-sm w-6 text-center shrink-0">{detail.emoji}</span>
-                        <span className="text-[11px] font-bold text-gray-600 w-4 shrink-0">{key}</span>
-                        <div className="flex-1 bg-gray-100 rounded-full h-5 relative overflow-hidden">
-                          <div className={`h-full rounded-full ${colorMap[key]} transition-all duration-500`} style={{ width: `${count > 0 ? Math.max(pct, 8) : 0}%` }} />
-                          {count > 0 && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-500">{count}회</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 4. 궁위별 분포 */}
-              <div>
-                <div className="flex items-center gap-2 mb-3"><Target className="w-3.5 h-3.5 text-[#5E4078]" /><p className="text-[11px] font-bold text-gray-700">궁위(宮位)별 사건 분포</p></div>
-                <div className="grid grid-cols-4 gap-2">
-                  {Object.entries(PILLAR_POSITIONS).map(([key, info]) => {
-                    const count = dashboardStats.pillarCounts[key] || 0;
-                    const pct = dashboardStats.totalEvents > 0 ? Math.round((count / dashboardStats.totalEvents) * 100) : 0;
-                    return (
-                      <div key={key} className="bg-[#FAF7FD] rounded-xl p-2.5 text-center border border-[#EFE7F7]">
-                        <p className="text-base mb-1">{info.emoji}</p>
-                        <p className="text-[10px] font-bold text-[#5E4078]">{key}</p>
-                        <p className="text-lg font-extrabold text-[#5E4078]">{pct}%</p>
-                        <p className="text-[8px] text-gray-400">{count}건</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 5. 감정 분포 */}
-              <div>
-                <div className="flex items-center gap-2 mb-3"><TrendingUp className="w-3.5 h-3.5 text-[#5E4078]" /><p className="text-[11px] font-bold text-gray-700">감정 분포</p><span className="text-[10px] text-gray-400 ml-auto">평균 강도 {dashboardStats.avgIntensity}/5</span></div>
-                <div className="flex gap-2">
-                  {[
-                    { key: '긍정', textColor: 'text-emerald-700', bgColor: 'bg-emerald-50' },
-                    { key: '중립', textColor: 'text-gray-600', bgColor: 'bg-gray-50' },
-                    { key: '부정', textColor: 'text-rose-700', bgColor: 'bg-rose-50' }
-                  ].map(({ key, textColor, bgColor }) => {
-                    const count = dashboardStats.emotionCounts[key];
-                    const pct = dashboardStats.totalEvents > 0 ? Math.round((count / dashboardStats.totalEvents) * 100) : 0;
-                    return (
-                      <div key={key} className={`flex-1 ${bgColor} rounded-xl p-3 text-center border border-gray-100`}>
-                        <p className={`text-lg font-extrabold ${textColor}`}>{pct}%</p>
-                        <p className="text-[10px] text-gray-500 font-bold">{key}</p>
-                        <p className="text-[10px] text-gray-400 mt-1">{count}건</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 6. 누적 패턴 태그 */}
-              {dashboardStats.sortedTags.length > 0 && (
-                <div>
-                  <p className="text-[11px] font-bold text-gray-700 mb-2.5">누적 발현 패턴 태그</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {dashboardStats.sortedTags.map(([tag, count]) => (
-                      <span key={tag} className="text-[10px] bg-[#F0EBF5] text-[#5E4078] px-2.5 py-1 rounded-full font-bold border border-[#E5DDF0]">
-                        {tag} <span className="text-[#A994C1]">x{count}</span>
-                      </span>
-                    ))}
                   </div>
-                </div>
-              )}
 
-              {/* AI 상담 + 월간 리포트 CTA */}
-              <button onClick={() => onStartDiaryChat()} className="w-full bg-[#5E4078] text-white rounded-xl py-3.5 text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-[#4A306D] transition-colors shadow-md">
-                <MessageSquare className="w-4 h-4" /> 전체 발현 패턴으로 AI 상담하기
-              </button>
-              <button onClick={() => setShowMonthlyReport(true)} className="w-full bg-white border border-[#EBE5F2] text-[#5E4078] rounded-xl py-3 text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-[#FAF7FD] transition-colors">
-                <Calendar className="w-4 h-4" /> 월간 리포트 보기
-              </button>
-              <button onClick={() => setShowDashboard(false)} className="w-full text-center text-[11px] text-gray-400 font-bold py-1 hover:text-gray-600 transition">대시보드 접기</button>
-            </div>
-          )}
-        </div>
-
-        {/* ═══ 기록 추가 (2버튼) ═══ */}
-        <div className="flex gap-2">
-          <button onClick={() => setShowQuickRecord(true)}
-            className="flex-1 bg-[#5E4078] text-white font-bold py-4 rounded-2xl shadow-sm flex items-center justify-center gap-2 hover:bg-[#4A306D] transition-colors"
-          >
-            <Zap className="w-4 h-4" /> 빠른 기록
-          </button>
-          <button onClick={() => { setEditingId(null); setForm({ ...DIARY_INITIAL_FORM }); setSelectedRelatedIds([]); setShowForm(true); }}
-            className="flex-1 bg-white border border-dashed border-[#C9B7DA] text-[#5E4078] font-bold py-4 rounded-2xl shadow-sm flex items-center justify-center gap-2 hover:bg-purple-50 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> 깊이 기록
-          </button>
-        </div>
-        <div className="bg-[#FAF7FD] rounded-xl px-4 py-2.5 border border-[#EFE7F7]">
-          <p className="text-[11px] text-[#7C5A9B] text-center leading-relaxed font-medium">
-            {diaryEvents.length < 5
-              ? `현재 ${diaryEvents.length}건의 기록 — 10건 이상부터 사주 패턴 분석이 정확해져요`
-              : diaryEvents.length < 15
-                ? `${diaryEvents.length}건 기록 중 — 기록이 쌓일수록 숨겨진 사주 흐름이 보여요`
-                : `${diaryEvents.length}건의 기록이 쌓였어요 — 당신만의 사주 패턴이 선명해지고 있어요`
-            }
-          </p>
-        </div>
-
-        {/* ═══ 타임라인 ═══ */}
-        {groupedEvents.map(([year, events]) => (
-          <div key={year}>
-            <div className="flex items-center gap-2 mb-2 mt-1">
-              <div className="w-2 h-2 rounded-full bg-[#5E4078]"></div>
-              <p className="text-sm font-extrabold text-[#5E4078]">{year}년</p>
-              <div className="flex-1 h-px bg-[#E5DDF0]"></div>
-              <span className="text-[10px] text-gray-400 font-bold">{events.length}건</span>
-            </div>
-            <div className="space-y-3 ml-1 border-l-2 border-[#E5DDF0] pl-4">
-              {events.map((ev, idx) => {
-                const isQuick = ev.mode === 'quick';
-                const sipsinInfo = !isQuick ? DIARY_SIPSIN_MAP[ev.eventType] : null;
-                const analysis = ev.analysis || {};
-                const moodInfo = isQuick ? MOOD_LABELS.find(m => m.label === ev.moodLabel) : null;
-
-                return (
-                  <div key={ev.id} className="bg-white rounded-2xl p-4 border border-[#EBE5F2] shadow-sm animate-fade-in-up relative" style={{ animationDelay: `${idx * 0.06}s` }}>
-                    <div className="absolute -left-[22px] top-5 w-3 h-3 rounded-full bg-white border-2 border-[#5E4078]"></div>
-
-                    {isQuick ? (
-                      /* ─── 빠른 기록 카드 ─── */
-                      <>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">{moodInfo?.emoji || '📝'}</span>
-                            <span className="text-sm font-bold text-[#5E4078]">{ev.moodLabel}</span>
-                            <span className="text-[9px] bg-[#F0EBF5] text-[#5E4078] px-1.5 py-0.5 rounded-full font-bold border border-[#E5DDF0]">빠른기록</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-gray-400">{ev.date}</span>
-                            <button onClick={() => setDeleteConfirmId(ev.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition"><Trash2 className="w-3.5 h-3.5 text-gray-400" /></button>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-[10px] text-gray-400">에너지 {ev.energyLevel}/5</span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${EMOTION_COLORS[ev.emotion] || ''}`}>{ev.emotion}</span>
-                        </div>
-                        {ev.keywords && ev.keywords.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            {ev.keywords.map(kw => (
-                              <span key={kw} className="text-[10px] bg-[#F0EBF5] text-[#5E4078] px-2 py-0.5 rounded-full font-bold border border-[#E5DDF0]">{kw}</span>
-                            ))}
-                          </div>
-                        )}
-                        {ev.memo && <p className="text-[12px] text-gray-500 leading-relaxed">{ev.memo}</p>}
-                        {ev.relatedPeople && ev.relatedPeople.length > 0 && (
-                          <div className="flex items-center gap-1.5 mt-2">
-                            <UserPlus className="w-3 h-3 text-gray-400 shrink-0" />
-                            {ev.relatedPeople.map(p => (
-                              <span key={p.id} className="text-[10px] bg-[#F0EBF5] text-[#5E4078] px-2 py-0.5 rounded-full font-bold border border-[#E5DDF0]">{p.name}</span>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      /* ─── 깊이 기록 카드 (기존) ─── */
-                      <>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs font-extrabold text-[#5E4078]">{ev.date.replace('-', '년 ')}월</p>
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => handleEdit(ev)} className="p-1.5 rounded-lg hover:bg-gray-100 transition"><Edit3 className="w-3.5 h-3.5 text-gray-400" /></button>
-                            <button onClick={() => setDeleteConfirmId(ev.id)} className="p-1.5 rounded-lg hover:bg-red-50 transition"><Trash2 className="w-3.5 h-3.5 text-gray-400" /></button>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {sipsinInfo && (<span className="text-[10px] bg-[#5E4078] text-white px-2 py-1 rounded-full font-bold">{sipsinInfo.sipsin}·{sipsinInfo.hanja}</span>)}
-                          {analysis.pillar && (<span className="text-[10px] bg-[#F0EBF5] text-[#5E4078] px-2 py-1 rounded-full font-bold border border-[#E5DDF0]">{analysis.pillar.emoji} {analysis.pillar.key}</span>)}
-                          {(analysis.triggeredEffects || []).map(e => {
-                            const detail = EFFECT_DETAILS[e]; if (!detail) return null;
-                            const colorMap = { '충': 'bg-amber-50 text-amber-700 border-amber-200', '형': 'bg-rose-50 text-rose-700 border-rose-200', '합': 'bg-emerald-50 text-emerald-700 border-emerald-200', '파': 'bg-purple-50 text-purple-700 border-purple-200', '해': 'bg-blue-50 text-blue-700 border-blue-200' };
-                            return (<span key={e} className={`text-[10px] px-2 py-1 rounded-full font-bold border ${colorMap[e] || ''}`}>{detail.emoji} {detail.name}</span>);
-                          })}
-                          <span className="text-[10px] bg-gray-50 text-gray-600 px-2 py-1 rounded-full font-bold border border-gray-200">체감 {ev.intensity}/5</span>
-                          <span className={`text-[10px] px-2 py-1 rounded-full font-bold border ${EMOTION_COLORS[ev.emotion] || ''}`}>{ev.emotion}</span>
-                        </div>
-                        <p className="font-bold text-[#2B1B35] text-sm mb-1">{ev.title}</p>
-                        <p className="text-[12px] text-gray-500 leading-relaxed mb-3">{ev.memo}</p>
-                        {ev.relatedPeople && ev.relatedPeople.length > 0 && (
-                          <div className="flex items-center gap-1.5 mb-3">
-                            <UserPlus className="w-3 h-3 text-gray-400 shrink-0" />
-                            {ev.relatedPeople.map(p => (<span key={p.id} className="text-[10px] bg-[#F0EBF5] text-[#5E4078] px-2 py-0.5 rounded-full font-bold border border-[#E5DDF0]">{p.name}</span>))}
-                          </div>
-                        )}
-                        {analysis.summary && (
-                          <div className="bg-[#FAF7FD] rounded-xl p-3.5 border border-[#EFE7F7]">
-                            <div className="flex items-center gap-1.5 mb-2"><Sparkles className="w-3.5 h-3.5 text-[#7C3AED]" /><p className="text-[11px] font-bold text-[#7C3AED]">{analysis.sipsin?.name}({analysis.sipsin?.hanja}) 분석</p></div>
-                            <p className="text-[11px] text-gray-600 leading-relaxed mb-3">{analysis.summary}</p>
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
-                              {analysis.pillar && (<p className="text-[10px] text-gray-500"><span className="font-bold text-[#5E4078]">{analysis.pillar.emoji} 궁위:</span> {analysis.pillar.name} — {analysis.pillar.domain}</p>)}
-                              {analysis.seasonalContext?.note && (<p className="text-[10px] text-gray-500"><span className="font-bold text-[#5E4078]">🌿 계절:</span> {analysis.seasonalContext.season} {analysis.seasonalContext.dominant}</p>)}
-                            </div>
-                            {analysis.depthInsight && (<p className="text-[10px] text-gray-500 leading-relaxed mb-3 bg-white/60 rounded-lg px-3 py-2 border border-[#EFE7F7]">{analysis.depthInsight}</p>)}
-                            {analysis.classicalQuote && (
-                              <div className="bg-white/60 rounded-lg px-3 py-2 border border-[#E5DDF0] mb-3">
-                                <div className="flex items-center gap-1 mb-1"><BookMarked className="w-3 h-3 text-[#A994C1]" /><p className="text-[9px] font-bold text-[#A994C1]">사주 해석</p></div>
-                                <p className="text-[11px] text-[#5E4078] font-medium leading-relaxed">{analysis.classicalQuote.text}</p>
-                                <p className="text-[9px] text-gray-400 mt-0.5">— {analysis.classicalQuote.source}</p>
-                              </div>
-                            )}
-                            <div className="flex flex-wrap gap-1.5">
-                              {(analysis.patternTags || []).map(tag => (<span key={tag} className="text-[10px] bg-[#F0EBF5] text-[#5E4078] px-2 py-1 rounded-full font-bold">{tag}</span>))}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
+                  {/* Legend */}
+                  <div className="flex gap-3 mb-2">
+                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-400" /><span className="text-[9px] text-gray-500">긍정</span></div>
+                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-gray-300" /><span className="text-[9px] text-gray-500">중립</span></div>
+                    <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-rose-400" /><span className="text-[9px] text-gray-500">부정</span></div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
 
-        {diaryEvents.length === 0 && (
-          <div className="text-center py-12">
-            <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-sm font-bold text-gray-400 mb-1">아직 기록된 사건이 없어요</p>
-            <p className="text-xs text-gray-300">위의 버튼을 눌러 첫 사건을 기록해보세요</p>
-          </div>
-        )}
-      </div>
+                  {/* Bar chart */}
+                  <div className="flex items-end gap-1.5 h-32 px-1">
+                    {emotionGraphData.map((d, i) => {
+                      const maxH = 100; // percentage
+                      const totalH = d.total > 0 ? (d.total / emotionGraphMax) * maxH : 0;
+                      const posH = d.total > 0 ? (d.positive / d.total) * totalH : 0;
+                      const neuH = d.total > 0 ? (d.neutral / d.total) * totalH : 0;
+                      const negH = d.total > 0 ? (d.negative / d.total) * totalH : 0;
 
-      {/* ═══ 삭제 확인 모달 ═══ */}
-      {deleteConfirmId && (
-        <div className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center animate-fade-in" onClick={() => setDeleteConfirmId(null)}>
-          <div className="bg-white rounded-3xl p-6 mx-6 w-full max-w-[340px] shadow-2xl animate-fade-in-up" onClick={e => e.stopPropagation()}>
-            <div className="text-center mb-5">
-              <div className="w-14 h-14 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-3"><Trash2 className="w-7 h-7 text-rose-500" /></div>
-              <h3 className="text-lg font-bold text-gray-900 mb-1">기록 삭제</h3>
-              <p className="text-sm text-gray-500">이 기록을 삭제하시겠어요?<br />삭제하면 패턴 분석에서도 제외됩니다.</p>
-            </div>
-            <div className="flex gap-2.5">
-              <button onClick={() => setDeleteConfirmId(null)} className="flex-1 bg-gray-100 text-gray-600 font-bold py-3.5 rounded-xl hover:bg-gray-200 transition">취소</button>
-              <button onClick={() => handleDelete(deleteConfirmId)} className="flex-1 bg-rose-500 text-white font-bold py-3.5 rounded-xl hover:bg-rose-600 transition">삭제하기</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ 빠른 기록 바텀시트 ═══ */}
-      {showQuickRecord && (
-        <div className="absolute inset-0 bg-black/60 z-50 flex items-end animate-fade-in" onClick={() => setShowQuickRecord(false)}>
-          <div className="bg-white w-full rounded-t-[2rem] p-5 pb-10 max-h-[85%] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-5">
-              <h3 className="text-lg font-bold text-gray-900">빠른 기록</h3>
-              <button onClick={() => setShowQuickRecord(false)} className="bg-gray-100 p-2 rounded-full text-gray-500"><X className="w-4 h-4" /></button>
-            </div>
-            <div className="space-y-5">
-              {/* 기분 선택 */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2">오늘 기분은?</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {MOOD_LABELS.map(mood => (
-                    <button key={mood.key} onClick={() => setQuickForm(p => ({ ...p, moodLabel: mood.label }))}
-                      className={`flex flex-col items-center gap-1 py-3 rounded-xl border transition-colors ${quickForm.moodLabel === mood.label ? 'bg-[#5E4078] text-white border-[#5E4078]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                    >
-                      <span className="text-lg">{mood.emoji}</span>
-                      <span className="text-[10px] font-bold">{mood.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 에너지 레벨 */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2">에너지 수준</label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map(n => (
-                    <button key={n} onClick={() => setQuickForm(p => ({ ...p, energyLevel: n }))}
-                      className={`flex-1 py-2.5 rounded-xl font-bold text-sm border transition-colors ${quickForm.energyLevel === n ? 'bg-[#5E4078] text-white border-[#5E4078]' : 'bg-white text-gray-500 border-gray-200'}`}
-                    >{n}</button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 키워드 선택 */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2">무슨 일이 있었나요? (선택)</label>
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_KEYWORDS.map(kw => {
-                    const isActive = quickForm.keywords.includes(kw);
-                    return (
-                      <button key={kw} onClick={() => setQuickForm(p => ({ ...p, keywords: isActive ? p.keywords.filter(k => k !== kw) : [...p.keywords, kw] }))}
-                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${isActive ? 'bg-[#F0EBF5] text-[#5E4078] border-[#D1C5E0]' : 'bg-white text-gray-500 border-gray-200'}`}
-                      >{kw}</button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 관련 인물 */}
-              {relatedNodes.length > 0 && (
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-2"><UserPlus className="w-3 h-3 inline mr-1" />관련 인물 (선택)</label>
-                  <div className="flex flex-wrap gap-2">
-                    {relatedNodes.map(node => {
-                      const isSelected = quickForm.relatedPersonIds.includes(node.id);
                       return (
-                        <button key={node.id} onClick={() => setQuickForm(p => ({ ...p, relatedPersonIds: isSelected ? p.relatedPersonIds.filter(id => id !== node.id) : [...p.relatedPersonIds, node.id] }))}
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors flex items-center gap-1 ${isSelected ? 'bg-[#5E4078] text-white border-[#5E4078]' : 'bg-white text-gray-600 border-gray-200'}`}
-                        >
-                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${isSelected ? 'bg-white/20' : 'bg-[#F0EBF5] text-[#5E4078]'}`}>{node.name.charAt(0)}</span>
-                          {node.name}
-                        </button>
+                        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                          <div className="w-full flex flex-col justify-end" style={{ height: '100px' }}>
+                            {d.total > 0 ? (
+                              <div className="w-full rounded-t-md overflow-hidden flex flex-col justify-end">
+                                {negH > 0 && <div className="bg-rose-400 w-full" style={{ height: `${negH}px` }} />}
+                                {neuH > 0 && <div className="bg-gray-300 w-full" style={{ height: `${neuH}px` }} />}
+                                {posH > 0 && <div className="bg-emerald-400 w-full" style={{ height: `${posH}px` }} />}
+                              </div>
+                            ) : (
+                              <div className="w-full bg-gray-100 rounded-t-md" style={{ height: '4px' }} />
+                            )}
+                          </div>
+
+                          {/* Effect dots */}
+                          <div className="flex gap-0.5 min-h-[8px]">
+                            {Object.entries(d.effects || {}).map(([eff]) => (
+                              <div key={eff} className={`w-1.5 h-1.5 rounded-full ${EFFECT_DOT_COLORS[eff] || 'bg-gray-300'}`} />
+                            ))}
+                          </div>
+
+                          <span className="text-[9px] text-gray-400 font-bold">{d.label}</span>
+                        </div>
                       );
                     })}
                   </div>
                 </div>
-              )}
 
-              {/* 한줄 메모 */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">한 줄 메모 (선택)</label>
-                <input type="text" value={quickForm.memo} onChange={e => setQuickForm(p => ({ ...p, memo: e.target.value }))}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-[#5E4078]"
-                  placeholder="짧게 남기고 싶은 말"
-                />
+                {/* ─── 2B: Sipsin Distribution ─── */}
+                {sipsinDist.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-bold text-gray-700 mb-3">십신(十神) 분포</p>
+                    <div className="space-y-2">
+                      {sipsinDist.map(item => (
+                        <div key={item.type} className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-gray-600 w-20 shrink-0 truncate">
+                            {item.type} <span className="text-gray-400">{item.hanja}</span>
+                          </span>
+                          <div className="flex-1 bg-gray-100 rounded-full h-4 relative overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-[#5E4078] transition-all duration-500"
+                              style={{ width: `${Math.max((item.count / sipsinMax) * 100, 8)}%` }}
+                            />
+                          </div>
+                          <span className="text-[10px] font-bold text-gray-500 w-8 text-right">{item.count}건</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── 2C: Calendar Heatmap ─── */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[11px] font-bold text-gray-700">캘린더 히트맵</p>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => {
+                        if (heatmapMonth === 1) { setHeatmapMonth(12); setHeatmapYear(y => y - 1); }
+                        else { setHeatmapMonth(m => m - 1); }
+                      }} className="p-1 rounded-full hover:bg-gray-100 transition">
+                        <ChevronLeft className="w-3.5 h-3.5 text-gray-500" />
+                      </button>
+                      <span className="text-[11px] font-bold text-[#5E4078] min-w-[70px] text-center">
+                        {heatmapYear}년 {heatmapMonth}월
+                      </span>
+                      <button onClick={() => {
+                        if (heatmapMonth === 12) { setHeatmapMonth(1); setHeatmapYear(y => y + 1); }
+                        else { setHeatmapMonth(m => m + 1); }
+                      }} className="p-1 rounded-full hover:bg-gray-100 transition">
+                        <ChevronRight className="w-3.5 h-3.5 text-gray-500" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Day headers */}
+                  <div className="grid grid-cols-7 gap-1 mb-1">
+                    {['일', '월', '화', '수', '목', '금', '토'].map(d => (
+                      <div key={d} className="text-[9px] text-gray-400 text-center font-bold">{d}</div>
+                    ))}
+                  </div>
+
+                  {/* Heatmap grid */}
+                  <div className="grid grid-cols-7 gap-1">
+                    {/* Empty cells for offset */}
+                    {Array.from({ length: heatmapFirstDayOffset }).map((_, i) => (
+                      <div key={`empty-${i}`} className="w-full aspect-square" />
+                    ))}
+                    {heatmapData.map((cell) => (
+                      <div
+                        key={cell.day}
+                        className={`w-full aspect-square rounded-md flex items-center justify-center relative ${getHeatmapColor(cell.score, cell.hasEntry)}`}
+                      >
+                        <span className="text-[8px] font-bold text-gray-600">{cell.day}</span>
+                        {cell.hasEntry && (
+                          <div className="absolute bottom-0.5 w-1 h-1 rounded-full bg-[#5E4078]" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Legend */}
+                  <div className="flex items-center justify-center gap-2 mt-2">
+                    <span className="text-[8px] text-gray-400">부정</span>
+                    <div className="flex gap-0.5">
+                      <div className="w-3 h-3 rounded-sm bg-rose-400" />
+                      <div className="w-3 h-3 rounded-sm bg-rose-200" />
+                      <div className="w-3 h-3 rounded-sm bg-gray-300" />
+                      <div className="w-3 h-3 rounded-sm bg-emerald-200" />
+                      <div className="w-3 h-3 rounded-sm bg-emerald-400" />
+                    </div>
+                    <span className="text-[8px] text-gray-400">긍정</span>
+                  </div>
+                </div>
+
+                {/* ─── 2D: 하니 인사이트 (Locked) ─── */}
+                <div className="relative">
+                  <div className="bg-gradient-to-br from-[#FAF7FD] to-[#F0EBF5] rounded-2xl p-4 border border-[#EFE7F7] opacity-70">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Lock className="w-4 h-4 text-gray-400" />
+                      <p className="text-xs font-bold text-gray-500">하니 인사이트</p>
+                    </div>
+                    <p className="text-[11px] text-gray-400 leading-relaxed mb-3 blur-[2px]">
+                      당신의 십신 패턴을 종합 분석한 맞춤 인사이트를 제공해요. 반복되는 감정 흐름과 사건 패턴에서 발견된 핵심 포인트를 확인하세요.
+                    </p>
+                    <p className="text-[10px] text-gray-400 blur-[2px]">
+                      사주 고전 이론에 기반한 당신만의 패턴 리포트가 준비되어 있어요.
+                    </p>
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <button className="bg-[#5E4078] text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-2 active:scale-95 transition-transform">
+                      <Lock className="w-3.5 h-3.5" />
+                      HANI PASS로 잠금 해제
+                    </button>
+                  </div>
+                </div>
+
+                {/* ─── 2E: 하니와 상담 시작 CTA ─── */}
+                <button
+                  onClick={() => onStartDiaryChat()}
+                  className="w-full bg-[#5E4078] text-white rounded-xl py-3.5 text-[13px] font-bold flex items-center justify-center gap-2 hover:bg-[#4A306D] transition-colors shadow-md active:scale-95 transition-transform"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  하니와 상담 시작
+                </button>
+
+                <button
+                  onClick={() => setShowDashboard(false)}
+                  className="w-full text-center text-[11px] text-gray-400 font-bold py-1 hover:text-gray-600 transition"
+                >
+                  대시보드 접기
+                </button>
               </div>
+            )}
 
-              <button onClick={handleQuickSave} className="w-full bg-[#5E4078] text-white font-bold py-4 rounded-xl shadow-lg hover:bg-[#4A306D] transition">
-                기분 기록하기
+            {!showDashboard && diaryEvents.length === 0 && (
+              <div className="px-4 pb-4 -mt-1">
+                <span className="text-xs text-gray-400">기록이 쌓이면 분석 대시보드가 활성화돼요</span>
+              </div>
+            )}
+          </div>
+
+          {/* 하단 여백 */}
+          <div className="h-2" />
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 3: Daily Diary Bottom Sheet (4-step form)      */}
+      {/* ═══════════════════════════════════════════════ */}
+      {showDailyForm && (
+        <div className="absolute inset-0 bg-black/60 z-50 flex items-end animate-fade-in" onClick={() => setShowDailyForm(false)}>
+          <div className="bg-white w-full rounded-t-[2rem] p-5 pb-10 max-h-[90%] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">오늘 기록하기</h3>
+              <button onClick={() => setShowDailyForm(false)} className="bg-gray-100 p-2 rounded-full text-gray-500">
+                <X className="w-4 h-4" />
               </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* ═══ 체크인 바텀시트 ═══ */}
-      {showCheckIn && (
-        <div className="absolute inset-0 bg-black/60 z-50 flex items-end animate-fade-in" onClick={() => setShowCheckIn(false)}>
-          <div className="bg-white w-full rounded-t-[2rem] p-5 pb-10 max-h-[85%] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-5">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900">오늘의 체크인</h3>
-                <p className="text-[11px] text-gray-400">30초 안에 오늘을 정리해보세요</p>
-              </div>
-              <button onClick={() => setShowCheckIn(false)} className="bg-gray-100 p-2 rounded-full text-gray-500"><X className="w-4 h-4" /></button>
+            {/* Step indicator */}
+            <div className="flex items-center justify-center gap-2 mb-6">
+              {[0, 1, 2, 3].map(step => (
+                <div
+                  key={step}
+                  className={`w-2.5 h-2.5 rounded-full transition-all ${
+                    step === dailyStep
+                      ? 'bg-[#5E4078] w-6'
+                      : step < dailyStep
+                        ? 'bg-[#5E4078]'
+                        : 'bg-gray-200'
+                  }`}
+                />
+              ))}
             </div>
-            <div className="space-y-5">
-              {/* 기분 */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2">오늘 기분은?</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {MOOD_LABELS.map(mood => (
-                    <button key={mood.key} onClick={() => setCheckInForm(p => ({ ...p, moodLabel: mood.label }))}
-                      className={`flex flex-col items-center gap-1 py-3 rounded-xl border transition-colors ${checkInForm.moodLabel === mood.label ? 'bg-[#5E4078] text-white border-[#5E4078]' : 'bg-white text-gray-600 border-gray-200'}`}
-                    >
-                      <span className="text-lg">{mood.emoji}</span>
-                      <span className="text-[10px] font-bold">{mood.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
 
-              {/* 에너지 */}
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2">에너지 수준</label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map(n => (
-                    <button key={n} onClick={() => setCheckInForm(p => ({ ...p, energyLevel: n }))}
-                      className={`flex-1 py-2.5 rounded-xl font-bold text-sm border transition-colors ${checkInForm.energyLevel === n ? 'bg-[#5E4078] text-white border-[#5E4078]' : 'bg-white text-gray-500 border-gray-200'}`}
-                    >{n}</button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 가장 신경 쓰인 사람 */}
-              {relatedNodes.length > 0 && (
+            {/* ─── Step 0: Date Selection ─── */}
+            {dailyStep === 0 && (
+              <div className="space-y-5 animate-fade-in">
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-2">가장 신경 쓰인 사람은? (선택)</label>
-                  <div className="flex flex-wrap gap-2">
-                    {relatedNodes.map(node => (
-                      <button key={node.id} onClick={() => setCheckInForm(p => ({ ...p, concernPersonId: p.concernPersonId === node.id ? '' : node.id }))}
-                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors flex items-center gap-1 ${checkInForm.concernPersonId === node.id ? 'bg-[#5E4078] text-white border-[#5E4078]' : 'bg-white text-gray-600 border-gray-200'}`}
+                  <label className="block text-xs font-bold text-gray-500 mb-3">날짜 선택</label>
+                  <div className="flex items-center justify-center gap-4">
+                    <button
+                      onClick={() => navigateDailyDate(-1)}
+                      className="bg-gray-100 p-2.5 rounded-xl hover:bg-gray-200 transition"
+                    >
+                      <ChevronLeft className="w-5 h-5 text-gray-500" />
+                    </button>
+                    <div className="text-center min-w-[160px]">
+                      <p className="text-sm font-bold text-gray-900">{formatFullDate(dailyForm.date)}</p>
+                    </div>
+                    <button
+                      onClick={() => navigateDailyDate(1)}
+                      className="bg-gray-100 p-2.5 rounded-xl hover:bg-gray-200 transition"
+                    >
+                      <ChevronRight className="w-5 h-5 text-gray-500" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Today's ilwun for selected date */}
+                <div className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7]">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Sun className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-[10px] font-bold text-[#5E4078]">이날의 일운</span>
+                  </div>
+                  <p className="text-[11px] text-gray-600">
+                    {dailyIlwun.pillarText} · {dailyIlwun.element} 기운 · {dailyIlwun.seasonal.season}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* ─── Step 1: Emotion Score (0-5) ─── */}
+            {dailyStep === 1 && (
+              <div className="space-y-5 animate-fade-in">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-3">오늘 기분은 어떤가요?</label>
+                  <div className="flex items-center justify-center gap-3">
+                    {EMOTION_SCALE.map(em => (
+                      <button
+                        key={em.value}
+                        onClick={() => setDailyForm(prev => ({ ...prev, emotionScore: em.value }))}
+                        className={`flex flex-col items-center gap-1 transition-all ${
+                          dailyForm.emotionScore === em.value
+                            ? 'scale-125'
+                            : 'opacity-50 hover:opacity-75'
+                        }`}
                       >
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${checkInForm.concernPersonId === node.id ? 'bg-white/20' : 'bg-[#F0EBF5] text-[#5E4078]'}`}>{node.name.charAt(0)}</span>
-                        {node.name}
+                        <span className="text-2xl">{em.emoji}</span>
+                        <span className="text-[9px] font-bold" style={{ color: em.color }}>{em.label}</span>
                       </button>
                     ))}
                   </div>
                 </div>
+                <div className="text-center">
+                  <span className="text-lg">{EMOTION_SCALE[dailyForm.emotionScore]?.emoji}</span>
+                  <p className="text-xs font-bold text-gray-600 mt-1">{EMOTION_SCALE[dailyForm.emotionScore]?.label}</p>
+                </div>
+              </div>
+            )}
+
+            {/* ─── Step 2: Intensity (1-5) ─── */}
+            {dailyStep === 2 && (
+              <div className="space-y-5 animate-fade-in">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-3">
+                    오늘의 감정 강도는? <span className="text-[#5E4078]">{dailyForm.intensity}/5</span>
+                  </label>
+                  <div className="flex items-center justify-center gap-3">
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setDailyForm(prev => ({ ...prev, intensity: n }))}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm border-2 transition-all ${
+                          dailyForm.intensity >= n
+                            ? 'bg-[#5E4078] text-white border-[#5E4078]'
+                            : 'bg-white text-gray-400 border-gray-200 hover:border-[#C9B7DA]'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex justify-between px-2 mt-2">
+                    <span className="text-[10px] text-gray-400">약함</span>
+                    <span className="text-[10px] text-gray-400">매우 강함</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ─── Step 3: Event Categories + Memo ─── */}
+            {dailyStep === 3 && (
+              <div className="space-y-5 animate-fade-in">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-2">어떤 일이 있었나요? (복수 선택 가능)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {DIARY_EVENT_TYPES.map(type => {
+                      const data = DIARY_SIPSIN_MAP[type];
+                      const isActive = dailyForm.eventTypes.includes(type);
+                      return (
+                        <button
+                          key={type}
+                          onClick={() => {
+                            setDailyForm(prev => ({
+                              ...prev,
+                              eventTypes: isActive
+                                ? prev.eventTypes.filter(t => t !== type)
+                                : [...prev.eventTypes, type]
+                            }));
+                            // Show tooltip briefly
+                            if (!isActive && data) {
+                              setSipsinTooltip({ type, sipsin: data.sipsin, hanja: data.hanja, relation: data.elementRelation });
+                              setTimeout(() => setSipsinTooltip(null), 2000);
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                            isActive
+                              ? 'bg-[#5E4078] text-white border-[#5E4078]'
+                              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          {type}
+                          {data && (
+                            <span className={`ml-1 text-[9px] ${isActive ? 'text-purple-200' : 'text-gray-400'}`}>
+                              {data.sipsin}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Sipsin tooltip */}
+                  {sipsinTooltip && (
+                    <div className="mt-2 bg-[#FAF7FD] rounded-lg px-3 py-2 border border-[#EFE7F7] animate-fade-in">
+                      <p className="text-[11px] text-[#5E4078] font-bold">
+                        {sipsinTooltip.sipsin}({sipsinTooltip.hanja})
+                      </p>
+                      <p className="text-[10px] text-gray-500">{sipsinTooltip.relation}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">
+                    메모 <span className="text-gray-400 font-normal">({dailyForm.memo.length}/300)</span>
+                  </label>
+                  <textarea
+                    value={dailyForm.memo}
+                    onChange={e => {
+                      if (e.target.value.length <= 300) {
+                        setDailyForm(prev => ({ ...prev, memo: e.target.value }));
+                      }
+                    }}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078] resize-none h-24"
+                    placeholder="오늘 있었던 일을 자유롭게 적어주세요"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ─── Navigation buttons ─── */}
+            <div className="flex gap-3 mt-6">
+              {dailyStep > 0 && (
+                <button
+                  onClick={() => setDailyStep(s => s - 1)}
+                  className="flex-1 bg-gray-100 text-gray-600 font-bold py-3.5 rounded-xl hover:bg-gray-200 transition"
+                >
+                  이전
+                </button>
               )}
+              {dailyStep < 3 ? (
+                <button
+                  onClick={() => setDailyStep(s => s + 1)}
+                  className="flex-1 bg-[#5E4078] text-white font-bold py-3.5 rounded-xl hover:bg-[#4A306D] transition"
+                >
+                  다음
+                </button>
+              ) : (
+                <button
+                  onClick={handleDailySave}
+                  className="flex-1 bg-[#5E4078] text-white font-bold py-3.5 rounded-xl hover:bg-[#4A306D] transition shadow-md"
+                >
+                  저장
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-              {/* 소모 트리거 */}
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 4: Past Event Bottom Sheet                     */}
+      {/* ═══════════════════════════════════════════════ */}
+      {showPastForm && (
+        <div className="absolute inset-0 bg-black/60 z-50 flex items-end animate-fade-in" onClick={() => setShowPastForm(false)}>
+          <div className="bg-white w-full rounded-t-[2rem] p-5 pb-10 max-h-[90%] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-lg font-bold text-gray-900">과거 사건 기록</h3>
+              <button onClick={() => setShowPastForm(false)} className="bg-gray-100 p-2 rounded-full text-gray-500">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Year / Month selectors */}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-gray-500 mb-1">발생 연도</label>
+                  <select
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078]"
+                    value={pastForm.year}
+                    onChange={e => setPastForm(prev => ({ ...prev, year: e.target.value }))}
+                  >
+                    {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}년</option>)}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-gray-500 mb-1">발생 월</label>
+                  <select
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078]"
+                    value={pastForm.month}
+                    onChange={e => setPastForm(prev => ({ ...prev, month: e.target.value }))}
+                  >
+                    {['01','02','03','04','05','06','07','08','09','10','11','12'].map(m => (
+                      <option key={m} value={m}>{parseInt(m)}월</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Event type: single select */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2">나를 소모시킨 것은? (선택)</label>
+                <label className="block text-xs font-bold text-gray-500 mb-2">사건 유형</label>
                 <div className="flex flex-wrap gap-2">
-                  {DRAIN_TRIGGERS.map(t => (
-                    <button key={t} onClick={() => setCheckInForm(p => ({ ...p, drainTrigger: p.drainTrigger === t ? '' : t }))}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${checkInForm.drainTrigger === t ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-white text-gray-500 border-gray-200'}`}
-                    >{t}</button>
+                  {DIARY_EVENT_TYPES.map(type => {
+                    const data = DIARY_SIPSIN_MAP[type];
+                    const isActive = pastForm.eventType === type;
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => setPastForm(prev => ({ ...prev, eventType: type }))}
+                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${
+                          isActive
+                            ? 'bg-[#5E4078] text-white border-[#5E4078]'
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        {type}
+                        {data && <span className={`ml-1 text-[9px] ${isActive ? 'text-purple-200' : 'text-gray-400'}`}>{data.sipsin}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                {DIARY_SIPSIN_MAP[pastForm.eventType] && (
+                  <div className="mt-2 bg-[#FAF7FD] rounded-lg px-3 py-2 border border-[#EFE7F7]">
+                    <p className="text-[11px] text-[#5E4078] font-bold mb-0.5">
+                      {DIARY_SIPSIN_MAP[pastForm.eventType].sipsin}({DIARY_SIPSIN_MAP[pastForm.eventType].hanja}) — {DIARY_SIPSIN_MAP[pastForm.eventType].elementRelation}
+                    </p>
+                    <p className="text-[10px] text-gray-500">{DIARY_SIPSIN_MAP[pastForm.eventType].desc}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Title */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">
+                  사건 제목 <span className="text-gray-400 font-normal">({pastForm.title.length}/50)</span>
+                </label>
+                <input
+                  type="text"
+                  value={pastForm.title}
+                  onChange={e => {
+                    if (e.target.value.length <= 50) {
+                      setPastForm(prev => ({ ...prev, title: e.target.value }));
+                    }
+                  }}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-[#5E4078]"
+                  placeholder="예: 직장 내 큰 마찰, 연인과 이별"
+                />
+              </div>
+
+              {/* Detail */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">
+                  상세 내용 <span className="text-gray-400 font-normal">({pastForm.detail.length}/500)</span>
+                </label>
+                <textarea
+                  value={pastForm.detail}
+                  onChange={e => {
+                    if (e.target.value.length <= 500) {
+                      setPastForm(prev => ({ ...prev, detail: e.target.value }));
+                    }
+                  }}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078] resize-none h-24"
+                  placeholder="당시에 어떤 일이 있었는지, 감정과 결과를 구체적으로 적어주세요."
+                />
+              </div>
+
+              {/* Emotion recall: 3 buttons */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-2">당시 감정은?</label>
+                <div className="flex gap-2">
+                  {['긍정', '중립', '부정'].map(em => (
+                    <button
+                      key={em}
+                      onClick={() => setPastForm(prev => ({ ...prev, emotionRecall: em }))}
+                      className={`flex-1 py-3 rounded-xl font-bold text-sm border transition-colors ${
+                        pastForm.emotionRecall === em
+                          ? em === '긍정'
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-300'
+                            : em === '부정'
+                              ? 'bg-rose-50 text-rose-600 border-rose-300'
+                              : 'bg-gray-100 text-gray-600 border-gray-300'
+                          : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {em}
+                    </button>
                   ))}
                 </div>
               </div>
 
-              {/* 회복 트리거 */}
+              {/* Impact: 1-5 */}
               <div>
-                <label className="block text-xs font-bold text-gray-500 mb-2">나를 회복시킨 것은? (선택)</label>
-                <div className="flex flex-wrap gap-2">
-                  {RECOVERY_TRIGGERS.map(t => (
-                    <button key={t} onClick={() => setCheckInForm(p => ({ ...p, recoveryTrigger: p.recoveryTrigger === t ? '' : t }))}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${checkInForm.recoveryTrigger === t ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-gray-500 border-gray-200'}`}
-                    >{t}</button>
+                <label className="block text-xs font-bold text-gray-500 mb-2">
+                  영향도 <span className="text-[#5E4078]">{pastForm.impact}/5</span>
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setPastForm(prev => ({ ...prev, impact: n }))}
+                      className={`flex-1 py-2.5 rounded-xl font-bold text-sm border transition-colors ${
+                        pastForm.impact === n
+                          ? 'bg-[#5E4078] text-white border-[#5E4078]'
+                          : 'bg-white text-gray-500 border-gray-200'
+                      }`}
+                    >
+                      {n}
+                    </button>
                   ))}
                 </div>
               </div>
 
-              <button onClick={handleCheckInSave} className="w-full bg-[#5E4078] text-white font-bold py-4 rounded-xl shadow-lg hover:bg-[#4A306D] transition">
-                체크인 완료
+              {/* Fortune Mapping toggle */}
+              <div>
+                <button
+                  onClick={() => setShowFortuneMapping(p => !p)}
+                  className="flex items-center gap-2 text-xs font-bold text-[#5E4078] py-2"
+                >
+                  <Star className="w-3.5 h-3.5" />
+                  운세 매핑 보기
+                  {showFortuneMapping
+                    ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" />
+                    : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                  }
+                </button>
+
+                {showFortuneMapping && fortuneMapping && (
+                  <div className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7] space-y-2 animate-fade-in">
+                    {[fortuneMapping.daewun, fortuneMapping.sewun, fortuneMapping.wolwun].map(fortune => (
+                      <div key={fortune.name} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold text-[#5E4078]">{fortune.name}</span>
+                          <span className="text-[11px] text-gray-600">{fortune.label}</span>
+                        </div>
+                        <div className="flex gap-0.5">
+                          {Array.from({ length: 3 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`w-3 h-3 ${
+                                i < fortune.stars ? 'text-amber-400 fill-amber-400' : 'text-gray-200'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <p className="text-[9px] text-gray-400 mt-1">
+                      대운(10년) &gt; 세운(1년) &gt; 월운(1개월) 순으로 영향력이 큽니다
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Save button */}
+              <button
+                onClick={handlePastSave}
+                className="w-full bg-[#5E4078] text-white font-bold py-4 rounded-xl shadow-lg hover:bg-[#4A306D] transition mt-2"
+              >
+                기록 저장하고 분석하기
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ═══ 월간 리포트 모달 ═══ */}
-      {showMonthlyReport && (
-        <div className="absolute inset-0 bg-black/60 z-50 flex items-end animate-fade-in" onClick={() => setShowMonthlyReport(false)}>
-          <div className="bg-[#F7F5FA] w-full rounded-t-[2rem] p-5 pb-10 max-h-[90%] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 5: Ilwun Detail Popup                          */}
+      {/* ═══════════════════════════════════════════════ */}
+      {showIlwunPopup && (
+        <div className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center animate-fade-in" onClick={() => setShowIlwunPopup(false)}>
+          <div className="bg-white rounded-3xl p-6 mx-5 w-full max-w-[360px] shadow-2xl animate-fade-in-up" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-900">{reportMonth.year}년 {reportMonth.month}월 리포트</h3>
-              <button onClick={() => setShowMonthlyReport(false)} className="bg-gray-100 p-2 rounded-full text-gray-500"><X className="w-4 h-4" /></button>
+              <h3 className="text-lg font-bold text-gray-900">오늘의 일운 상세</h3>
+              <button onClick={() => setShowIlwunPopup(false)} className="bg-gray-100 p-2 rounded-full text-gray-500">
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            {/* 월 선택기 */}
-            <div className="flex items-center justify-center gap-4 mb-5">
-              <button onClick={() => setReportMonth(prev => {
-                const m = prev.month - 1;
-                return m < 1 ? { year: prev.year - 1, month: 12 } : { ...prev, month: m };
-              })} className="bg-white p-2 rounded-full border border-gray-200 shadow-sm"><ChevronLeft className="w-4 h-4 text-gray-500" /></button>
-              <span className="text-sm font-bold text-[#5E4078]">{reportMonth.year}년 {reportMonth.month}월</span>
-              <button onClick={() => setReportMonth(prev => {
-                const m = prev.month + 1;
-                return m > 12 ? { year: prev.year + 1, month: 1 } : { ...prev, month: m };
-              })} className="bg-white p-2 rounded-full border border-gray-200 shadow-sm"><ChevronRight className="w-4 h-4 text-gray-500" /></button>
-            </div>
-
-            {monthlyReportData && (
-              <div className="space-y-4">
-                {monthlyReportData.totalEvents === 0 ? (
-                  <div className="text-center py-8">
-                    <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm font-bold text-gray-400">이번 달 기록이 아직 없어요</p>
-                    <p className="text-xs text-gray-300 mt-1">기록을 남기면 리포트가 자동으로 생성돼요</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* 기록 수 + 평균 강도 */}
-                    <div className="bg-white rounded-2xl p-4 border border-[#EBE5F2] shadow-sm">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className="text-[10px] text-gray-500">이번 달 기록</p>
-                          <p className="text-2xl font-extrabold text-[#5E4078]">{monthlyReportData.totalEvents}건</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] text-gray-500">평균 강도</p>
-                          <p className="text-2xl font-extrabold text-[#5E4078]">{monthlyReportData.avgIntensity}/5</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 감정 분포 */}
-                    <div className="bg-white rounded-2xl p-4 border border-[#EBE5F2] shadow-sm">
-                      <p className="text-xs font-bold text-[#5E4078] mb-3">감정 분포</p>
-                      <div className="flex gap-2">
-                        {[
-                          { key: '긍정', textColor: 'text-emerald-700', bgColor: 'bg-emerald-50' },
-                          { key: '중립', textColor: 'text-gray-600', bgColor: 'bg-gray-50' },
-                          { key: '부정', textColor: 'text-rose-700', bgColor: 'bg-rose-50' },
-                        ].map(({ key, textColor, bgColor }) => {
-                          const count = monthlyReportData.emotionCounts[key];
-                          const pct = monthlyReportData.totalEvents > 0 ? Math.round((count / monthlyReportData.totalEvents) * 100) : 0;
-                          return (
-                            <div key={key} className={`flex-1 ${bgColor} rounded-xl p-3 text-center border border-gray-100`}>
-                              <p className={`text-lg font-extrabold ${textColor}`}>{pct}%</p>
-                              <p className="text-[10px] text-gray-500 font-bold">{key}</p>
-                              <p className="text-[10px] text-gray-400">{count}건</p>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* 가장 많이 떠올린 사람 */}
-                    {monthlyReportData.mostConnectedPerson && (
-                      <div className="bg-white rounded-2xl p-4 border border-[#EBE5F2] shadow-sm">
-                        <p className="text-xs font-bold text-[#5E4078] mb-2">가장 많이 떠올린 사람</p>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-[#F0EBF5] border border-[#D1C5E0] flex items-center justify-center text-[#5E4078] font-bold text-sm">
-                            {monthlyReportData.mostConnectedPerson.name.charAt(0)}
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-gray-800">{monthlyReportData.mostConnectedPerson.name}</p>
-                            <p className="text-[10px] text-gray-400">{monthlyReportData.mostConnectedPerson.count}건의 기록과 연결</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 반복 패턴 */}
-                    {monthlyReportData.repeatedPatterns.length > 0 && (
-                      <div className="bg-white rounded-2xl p-4 border border-[#EBE5F2] shadow-sm">
-                        <p className="text-xs font-bold text-[#5E4078] mb-2">반복된 패턴</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {monthlyReportData.repeatedPatterns.map(tag => (
-                            <span key={tag} className="text-[10px] bg-[#F0EBF5] text-[#5E4078] px-2.5 py-1 rounded-full font-bold border border-[#E5DDF0]">{tag}</span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 소모/회복 패턴 */}
-                    {(monthlyReportData.drainPatterns.length > 0 || monthlyReportData.recoveryPatterns.length > 0) && (
-                      <div className="bg-white rounded-2xl p-4 border border-[#EBE5F2] shadow-sm">
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-rose-50 rounded-xl p-3 border border-rose-100">
-                            <p className="text-[10px] text-rose-700 font-bold mb-2">소모 패턴</p>
-                            {monthlyReportData.drainPatterns.map(p => (
-                              <p key={p} className="text-[11px] text-rose-600 mb-0.5">· {p}</p>
-                            ))}
-                            {monthlyReportData.drainPatterns.length === 0 && <p className="text-[11px] text-rose-400">없음</p>}
-                          </div>
-                          <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
-                            <p className="text-[10px] text-emerald-700 font-bold mb-2">회복 패턴</p>
-                            {monthlyReportData.recoveryPatterns.map(p => (
-                              <p key={p} className="text-[11px] text-emerald-600 mb-0.5">· {p}</p>
-                            ))}
-                            {monthlyReportData.recoveryPatterns.length === 0 && <p className="text-[11px] text-emerald-400">없음</p>}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 무드 요약 */}
-                    {monthlyReportData.moodSummary.length > 0 && (
-                      <div className="bg-white rounded-2xl p-4 border border-[#EBE5F2] shadow-sm">
-                        <p className="text-xs font-bold text-[#5E4078] mb-2">빠른 기록 감정 요약</p>
-                        <div className="flex flex-wrap gap-2">
-                          {monthlyReportData.moodSummary.map(([label, count]) => {
-                            const mood = MOOD_LABELS.find(m => m.label === label);
-                            return (
-                              <div key={label} className="flex items-center gap-1 bg-[#FAF7FD] rounded-full px-3 py-1.5 border border-[#EFE7F7]">
-                                <span className="text-sm">{mood?.emoji}</span>
-                                <span className="text-[11px] font-bold text-[#5E4078]">{label}</span>
-                                <span className="text-[10px] text-gray-400">{count}회</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 다음 달 제안 */}
-                    <div className="bg-gradient-to-br from-[#FAF7FD] to-[#F0EBF5] rounded-2xl p-4 border border-[#EFE7F7]">
-                      <div className="flex items-center gap-1 mb-2">
-                        <Sparkles className="w-3.5 h-3.5 text-[#7C3AED]" />
-                        <p className="text-xs font-bold text-[#7C3AED]">다음 달 제안</p>
-                      </div>
-                      <div className="space-y-2">
-                        {monthlyReportData.suggestions.map((s, i) => (
-                          <div key={i} className="flex items-start gap-2">
-                            <span className="text-sm shrink-0">💡</span>
-                            <p className="text-[11px] text-gray-600 leading-relaxed">{s}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
+            {/* Pillar display */}
+            <div className="flex items-center gap-4 mb-5">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#F0EBF5] to-[#FAF7FD] flex items-center justify-center border border-[#E5DDF0]">
+                <span className="text-2xl font-extrabold text-[#5E4078]">
+                  {todayIlwun.stemKr}{todayIlwun.branchKr}
+                </span>
               </div>
-            )}
+              <div>
+                <p className="text-sm font-bold text-gray-900">{todayIlwun.pillarText}</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  천간: {todayIlwun.stemKr}({todayIlwun.stem}) · 지지: {todayIlwun.branchKr}({todayIlwun.branch})
+                </p>
+              </div>
+            </div>
+
+            {/* Element + Season */}
+            <div className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7] mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="w-3.5 h-3.5 text-[#5E4078]" />
+                <span className="text-[11px] font-bold text-[#5E4078]">오행 기운</span>
+              </div>
+              <p className="text-[11px] text-gray-600 leading-relaxed">
+                오늘은 <strong className="text-[#5E4078]">{todayIlwun.element}</strong> 기운이 작용합니다.
+              </p>
+              <p className="text-[11px] text-gray-500 leading-relaxed mt-1">
+                {todayIlwun.seasonal.desc}
+              </p>
+            </div>
+
+            {/* Seasonal context */}
+            <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                <span className="text-[11px] font-bold text-gray-600">계절 맥락</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-[10px]">
+                <div>
+                  <span className="text-gray-400">계절:</span>
+                  <span className="ml-1 text-gray-600 font-bold">{todayIlwun.seasonal.season}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">주도 오행:</span>
+                  <span className="ml-1 text-gray-600 font-bold">{todayIlwun.seasonal.dominant}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">약한 오행:</span>
+                  <span className="ml-1 text-gray-600 font-bold">{todayIlwun.seasonal.weak}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400">필요 오행:</span>
+                  <span className="ml-1 text-gray-600 font-bold">{todayIlwun.seasonal.needed}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Interaction */}
+            <div className="bg-white rounded-xl p-3 border border-[#EBE5F2] mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Info className="w-3.5 h-3.5 text-[#5E4078]" />
+                <span className="text-[11px] font-bold text-[#5E4078]">
+                  오늘의 작용: {todayIlwun.interaction.type === '없음' ? '평온' : todayIlwun.interaction.type}
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-600 leading-relaxed mb-2">
+                {todayIlwun.interaction.desc}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {todayIlwun.interaction.effects.map((eff, i) => (
+                  <span key={i} className="text-[10px] bg-[#F0EBF5] text-[#5E4078] px-2 py-0.5 rounded-full font-bold border border-[#E5DDF0]">
+                    {eff}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Summary */}
+            <div className="bg-gradient-to-br from-[#FAF7FD] to-[#F0EBF5] rounded-xl p-3 border border-[#EFE7F7]">
+              <p className="text-[11px] text-gray-600 leading-relaxed">{todayIlwun.summary}</p>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ═══ 깊이 기록 입력/수정 모달 ═══ */}
-      {showForm && (
-        <div className="absolute inset-0 bg-black/60 z-50 flex items-end animate-fade-in" onClick={handleCloseForm}>
-          <div className="bg-white w-full rounded-t-[2rem] p-5 pb-10 max-h-[85%] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-5">
-              <h3 className="text-lg font-bold text-gray-900">{editingId ? '사건 수정' : '깊이 기록'}</h3>
-              <button onClick={handleCloseForm} disabled={isAnalyzing} className={`bg-gray-100 p-2 rounded-full text-gray-500 ${isAnalyzing ? 'opacity-30 cursor-not-allowed' : ''}`}><X className="w-4 h-4" /></button>
+      {/* ═══════════════════════════════════════════════ */}
+      {/* Save Confirmation Screen                       */}
+      {/* ═══════════════════════════════════════════════ */}
+      {showSaveConfirm && savedEventSummary && (
+        <div className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center animate-fade-in" onClick={() => setShowSaveConfirm(false)}>
+          <div className="bg-white rounded-3xl p-6 mx-5 w-full max-w-[340px] shadow-2xl animate-fade-in-up text-center" onClick={e => e.stopPropagation()}>
+            {/* Checkmark animation */}
+            <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Check className="w-8 h-8 text-emerald-500" />
             </div>
 
-            {isAnalyzing ? (
-              <div className="py-12 flex flex-col items-center justify-center animate-pulse">
-                <Activity className="w-12 h-12 text-[#5E4078] mb-4" />
-                <p className="font-bold text-gray-800 mb-2">십신 기반 발현 패턴 분석 중...</p>
-                <p className="text-xs text-gray-500">사주 고전 이론 대조 및 합충형파해 역학 계산</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label className="block text-xs font-bold text-gray-500 mb-1">발생 연도</label>
-                    <select className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078]" value={form.year} onChange={e => setForm(prev => ({ ...prev, year: e.target.value }))}>
-                      {YEAR_OPTIONS.map(y => <option key={y} value={y}>{y}년</option>)}
-                    </select>
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-bold text-gray-500 mb-1">발생 월</label>
-                    <select className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078]" value={form.month} onChange={e => setForm(prev => ({ ...prev, month: e.target.value }))}>
-                      {['01','02','03','04','05','06','07','08','09','10','11','12'].map(m => <option key={m} value={m}>{m}월</option>)}
-                    </select>
-                  </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">기록이 저장되었어요</h3>
+
+            <div className="bg-[#FAF7FD] rounded-xl p-3 border border-[#EFE7F7] mb-4 text-left">
+              <p className="text-[11px] text-gray-500 mb-1">{savedEventSummary.date}</p>
+              {savedEventSummary.emotion && (
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">{savedEventSummary.emotion.emoji}</span>
+                  <span className="text-xs font-bold text-gray-700">{savedEventSummary.emotion.label}</span>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-2">사건 유형 (십신 기반)</label>
-                  <div className="flex flex-wrap gap-2">
-                    {DIARY_EVENT_TYPES.map(type => {
-                      const data = DIARY_SIPSIN_MAP[type];
-                      const isActive = form.eventType === type;
-                      return (
-                        <button key={type} onClick={() => setForm(prev => ({ ...prev, eventType: type }))}
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${isActive ? 'bg-[#5E4078] text-white border-[#5E4078]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                        >
-                          {type}
-                          {data && <span className={`ml-1 text-[9px] ${isActive ? 'text-purple-200' : 'text-gray-400'}`}>{data.sipsin}</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {selectedSipsin && (
-                    <div className="mt-2 bg-[#FAF7FD] rounded-lg px-3 py-2 border border-[#EFE7F7]">
-                      <p className="text-[11px] text-[#5E4078] font-bold mb-0.5">{selectedSipsin.sipsin}({selectedSipsin.hanja}) — {selectedSipsin.elementRelation}</p>
-                      <p className="text-[10px] text-gray-500">{selectedSipsin.desc}</p>
-                    </div>
-                  )}
+              )}
+              {savedEventSummary.eventTypes && savedEventSummary.eventTypes.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {savedEventSummary.eventTypes.map(type => (
+                    <span key={type} className="text-[10px] bg-[#F0EBF5] text-[#5E4078] px-2 py-0.5 rounded-full font-bold border border-[#E5DDF0]">
+                      {type}
+                    </span>
+                  ))}
                 </div>
+              )}
+              {savedEventSummary.sipsinName && (
+                <p className="text-[10px] text-[#5E4078] font-bold mt-2">
+                  {savedEventSummary.sipsinName}({savedEventSummary.sipsinHanja}) 분석이 반영되었어요
+                </p>
+              )}
+            </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">사건 제목</label>
-                  <input type="text" value={form.title} onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-[#5E4078]" placeholder="예: 직장 내 큰 마찰, 연인과 이별" />
-                </div>
+            <button
+              onClick={() => {
+                setShowSaveConfirm(false);
+                setSavedEventSummary(null);
+              }}
+              className="w-full bg-[#5E4078] text-white font-bold py-3.5 rounded-xl hover:bg-[#4A306D] transition"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
 
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">상세 기록</label>
-                  <textarea value={form.memo} onChange={e => setForm(prev => ({ ...prev, memo: e.target.value }))} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078] resize-none h-20" placeholder="당시에 어떤 일이 있었는지, 감정과 결과를 구체적으로 적어주세요." />
-                </div>
+      {/* ═══════════════════════════════════════════════ */}
+      {/* 6: Missed Day Popup                            */}
+      {/* ═══════════════════════════════════════════════ */}
+      {shouldShowMissedPopup && (
+        <div className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center animate-fade-in" onClick={() => setShowMissedPopup(false)}>
+          <div className="bg-white rounded-3xl p-6 mx-5 w-full max-w-[340px] shadow-2xl animate-fade-in-up text-center" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-3">
+              <Flame className="w-7 h-7 text-amber-500" />
+            </div>
 
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <label className="block text-xs font-bold text-gray-500 mb-1">체감 강도</label>
-                    <select value={form.intensity} onChange={e => setForm(prev => ({ ...prev, intensity: Number(e.target.value) }))} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078]">
-                      <option value={1}>1 - 약함</option><option value={2}>2</option><option value={3}>3 - 보통</option><option value={4}>4</option><option value={5}>5 - 매우 큼</option>
-                    </select>
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-bold text-gray-500 mb-1">감정 결과</label>
-                    <select value={form.emotion} onChange={e => setForm(prev => ({ ...prev, emotion: e.target.value }))} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-[#5E4078]">
-                      <option>긍정</option><option>중립</option><option>부정</option>
-                    </select>
-                  </div>
-                </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">어제 기록을 놓쳤어요!</h3>
+            <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+              괜찮아요, 오늘부터 다시 시작해봐요.<br />
+              꾸준한 기록이 사주 분석의 핵심이에요.
+            </p>
 
-                {relatedNodes.length > 0 && (
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-2"><UserPlus className="w-3 h-3 inline mr-1" />관련 인물 (선택)</label>
-                    <div className="flex flex-wrap gap-2">
-                      {relatedNodes.map(node => {
-                        const isSelected = selectedRelatedIds.includes(node.id);
-                        return (
-                          <button key={node.id} onClick={() => setSelectedRelatedIds(prev => isSelected ? prev.filter(id => id !== node.id) : [...prev, node.id])}
-                            className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-colors flex items-center gap-1 ${isSelected ? 'bg-[#5E4078] text-white border-[#5E4078]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
-                          >
-                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${isSelected ? 'bg-white/20' : 'bg-[#F0EBF5] text-[#5E4078]'}`}>{node.name.charAt(0)}</span>
-                            {node.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <button onClick={handleSave} disabled={isAnalyzing} className="w-full bg-[#5E4078] text-white font-bold py-4 rounded-xl shadow-lg mt-1 hover:bg-[#4A306D] transition disabled:opacity-60">
-                  {editingId ? '수정하고 재분석하기' : '기록 저장하고 분석하기'}
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => setShowMissedPopup(false)}
+                className="flex-1 bg-gray-100 text-gray-600 font-bold py-3.5 rounded-xl hover:bg-gray-200 transition"
+              >
+                나중에
+              </button>
+              <button
+                onClick={() => {
+                  setShowMissedPopup(false);
+                  setDailyStep(0);
+                  setDailyForm({ ...DIARY_DAILY_FORM });
+                  setShowDailyForm(true);
+                }}
+                className="flex-1 bg-[#5E4078] text-white font-bold py-3.5 rounded-xl hover:bg-[#4A306D] transition"
+              >
+                오늘 기록하기
+              </button>
+            </div>
           </div>
         </div>
       )}

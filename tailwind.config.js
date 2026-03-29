@@ -6,6 +6,22 @@ export default {
   ],
   theme: {
     extend: {
+      colors: {
+        primary: {
+          DEFAULT: '#5E4078',
+          dark: '#4A306D',
+          deep: '#3A2258',
+          light: '#7B5C95',
+        },
+        surface: {
+          DEFAULT: '#F7F5FA',
+          muted: '#F0EBF5',
+          light: '#FAF8FC',
+          line: '#EBE5F2',
+          soft: '#D1C5E0',
+          outline: '#C4B5D4',
+        },
+      },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',
         'fade-in-up': 'fadeInUp 0.4s ease-out',

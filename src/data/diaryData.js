@@ -547,3 +547,286 @@ export const DIARY_INITIAL_EVENTS = [
     relatedPeople: [{ id: 'c2', name: '김서하' }, { id: 'c7', name: '윤소영' }],
   },
 ];
+
+// ═══════════════════════════════════════════════════════════
+// V1 유틸리티 — 스트릭, 일운, 히트맵, 감정 그래프, 십신 분포
+// ═══════════════════════════════════════════════════════════
+
+// ─── 감정 스케일 (0-5 이모지) ─────────────────────────────
+export const EMOTION_SCALE = [
+  { value: 0, emoji: '😢', label: '매우 나쁨', color: '#EF4444' },
+  { value: 1, emoji: '😟', label: '나쁨', color: '#F97316' },
+  { value: 2, emoji: '😐', label: '보통', color: '#EAB308' },
+  { value: 3, emoji: '🙂', label: '괜찮음', color: '#84CC16' },
+  { value: 4, emoji: '😊', label: '좋음', color: '#22C55E' },
+  { value: 5, emoji: '🥰', label: '매우 좋음', color: '#10B981' },
+];
+
+// ─── 스트릭 배지 ─────────────────────────────────────────
+export const STREAK_BADGES = [
+  { days: 7, emoji: '🔥', label: '7일 연속', color: 'amber' },
+  { days: 30, emoji: '🌟', label: '30일 연속', color: 'yellow' },
+  { days: 100, emoji: '💎', label: '100일 연속', color: 'blue' },
+  { days: 365, emoji: '🏆', label: '365일 연속', color: 'purple' },
+];
+
+// ─── 스트릭 계산 ─────────────────────────────────────────
+export function computeStreak(events) {
+  if (!events || events.length === 0) return { current: 0, longest: 0, lastDate: null, earnedBadges: [] };
+
+  // 모든 기록 날짜를 일 단위로 추출 (YYYY-MM-DD 또는 YYYY-MM → 해당 월의 임의 날짜)
+  const dateSet = new Set();
+  events.forEach(ev => {
+    if (!ev.date) return;
+    if (ev.date.length === 10) {
+      dateSet.add(ev.date); // YYYY-MM-DD
+    } else if (ev.date.length === 7) {
+      dateSet.add(`${ev.date}-15`); // YYYY-MM → 월 중간
+    }
+  });
+
+  const sortedDates = [...dateSet].sort();
+  if (sortedDates.length === 0) return { current: 0, longest: 0, lastDate: null, earnedBadges: [] };
+
+  // 연속일 계산
+  let current = 1;
+  let longest = 1;
+  let streak = 1;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().slice(0, 10);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+  for (let i = sortedDates.length - 2; i >= 0; i--) {
+    const curr = new Date(sortedDates[i + 1]);
+    const prev = new Date(sortedDates[i]);
+    const diffDays = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
+    if (diffDays === 1) {
+      streak++;
+      longest = Math.max(longest, streak);
+    } else {
+      streak = 1;
+    }
+  }
+
+  // 현재 스트릭: 마지막 기록이 오늘 또는 어제여야 유효
+  const lastDate = sortedDates[sortedDates.length - 1];
+  if (lastDate === todayStr || lastDate === yesterdayStr) {
+    // 마지막 날짜부터 역순으로 연속 세기
+    current = 1;
+    for (let i = sortedDates.length - 2; i >= 0; i--) {
+      const curr = new Date(sortedDates[i + 1]);
+      const prev = new Date(sortedDates[i]);
+      const diffDays = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
+      if (diffDays === 1) current++;
+      else break;
+    }
+  } else {
+    current = 0;
+  }
+
+  longest = Math.max(longest, current);
+
+  const earnedBadges = STREAK_BADGES.filter(b => longest >= b.days);
+
+  return { current, longest, lastDate, earnedBadges };
+}
+
+// ─── 오늘의 일운 (천간지지 시뮬레이션) ───────────────────
+const HEAVENLY_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+const EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+const STEM_KR = { '甲': '갑', '乙': '을', '丙': '병', '丁': '정', '戊': '무', '己': '기', '庚': '경', '辛': '신', '壬': '임', '癸': '계' };
+const BRANCH_KR = { '子': '자', '丑': '축', '寅': '인', '卯': '묘', '辰': '진', '巳': '사', '午': '오', '未': '미', '申': '신', '酉': '유', '戌': '술', '亥': '해' };
+const STEM_ELEMENTS = { '甲': '목', '乙': '목', '丙': '화', '丁': '화', '戊': '토', '己': '토', '庚': '금', '辛': '금', '壬': '수', '癸': '수' };
+
+const ILWUN_INTERACTIONS = [
+  { type: '합', desc: '오늘은 좋은 인연이나 기회가 맺어질 수 있는 날이에요', effects: ['인간관계 호조', '계약/약속에 유리'] },
+  { type: '충', desc: '갑작스러운 변화나 충돌에 주의하세요', effects: ['돌발 상황 가능', '이동/변동 주의'] },
+  { type: '형', desc: '내면의 압박이나 스트레스가 쌓이기 쉬운 날이에요', effects: ['건강 관리 필요', '감정 조절 중요'] },
+  { type: '없음', desc: '비교적 안정적인 하루가 예상돼요', effects: ['평온한 하루', '루틴 유지 추천'] },
+];
+
+export function getTodayIlwun(dateOverride) {
+  const d = dateOverride ? new Date(dateOverride) : new Date();
+  const baseDate = new Date(1900, 0, 1); // 甲子일
+  const diffDays = Math.floor((d - baseDate) / (1000 * 60 * 60 * 24));
+
+  const stemIdx = ((diffDays % 10) + 10) % 10;
+  const branchIdx = ((diffDays % 12) + 12) % 12;
+
+  const stem = HEAVENLY_STEMS[stemIdx];
+  const branch = EARTHLY_BRANCHES[branchIdx];
+
+  // 상호작용 결정 (해시 기반)
+  const interactionIdx = (stemIdx + branchIdx + d.getMonth()) % ILWUN_INTERACTIONS.length;
+  const interaction = ILWUN_INTERACTIONS[interactionIdx];
+
+  const element = STEM_ELEMENTS[stem];
+  const monthKey = String(d.getMonth() + 1).padStart(2, '0');
+  const seasonal = SEASON_DYNAMICS[monthKey] || SEASON_DYNAMICS['01'];
+
+  const elementHanja = element === '목' ? '木' : element === '화' ? '火' : element === '토' ? '土' : element === '금' ? '金' : '水';
+  const pillar = `${STEM_KR[stem]}${BRANCH_KR[branch]}(${stem}${branch})`;
+  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+  const dateLabel = `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${dayNames[d.getDay()]})`;
+
+  return {
+    stem, branch,
+    stemKr: STEM_KR[stem], branchKr: BRANCH_KR[branch],
+    element,
+    pillar,
+    pillarText: pillar,
+    dateLabel,
+    interaction: {
+      ...interaction,
+      detail: interaction.effects ? interaction.effects.join(' / ') : null,
+    },
+    seasonal,
+    summary: `오늘의 일운은 ${pillar}일. ${element}(${elementHanja}) 기운이 작용하는 날이에요.`
+  };
+}
+
+// ─── 대운/세운/월운 매핑 (과거 사건 기록용) ──────────────
+export function getFortuneMapping(year, month) {
+  const y = parseInt(year);
+  const m = parseInt(month);
+
+  // 대운 (10년 단위)
+  const daewunPeriod = Math.floor((y - 1990) / 10);
+  const daewunStem = HEAVENLY_STEMS[((daewunPeriod * 3) % 10 + 10) % 10];
+  const daewunBranch = EARTHLY_BRANCHES[((daewunPeriod * 5) % 12 + 12) % 12];
+
+  // 세운 (연 단위)
+  const sewunStem = HEAVENLY_STEMS[((y - 4) % 10 + 10) % 10];
+  const sewunBranch = EARTHLY_BRANCHES[((y - 4) % 12 + 12) % 12];
+
+  // 월운
+  const wolwunStem = HEAVENLY_STEMS[((y * 12 + m) % 10 + 10) % 10];
+  const wolwunBranch = EARTHLY_BRANCHES[((m - 1 + 2) % 12 + 12) % 12];
+
+  const makeLabel = (s, b) => `${STEM_KR[s]}${BRANCH_KR[b]}(${s}${b})`;
+
+  // 영향력 위계: 대운 > 세운 > 월운 (별 개수로 표시)
+  return {
+    daewun: { stem: daewunStem, branch: daewunBranch, label: makeLabel(daewunStem, daewunBranch), stars: 3, name: '대운' },
+    sewun: { stem: sewunStem, branch: sewunBranch, label: makeLabel(sewunStem, sewunBranch), stars: 2, name: '세운' },
+    wolwun: { stem: wolwunStem, branch: wolwunBranch, label: makeLabel(wolwunStem, wolwunBranch), stars: 1, name: '월운' },
+  };
+}
+
+// ─── 캘린더 히트맵 데이터 ─────────────────────────────────
+export function getCalendarHeatmapData(events, year, month) {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const result = [];
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+    const dayEvents = events.filter(ev =>
+      ev.date === dateStr || (ev.date === monthStr && day === 15) // 월 단위 기록은 15일에 매핑
+    );
+
+    let score = 0;
+    let hasEntry = dayEvents.length > 0;
+    if (hasEntry) {
+      const emotionScores = dayEvents.map(ev => ev.emotion === '긍정' ? 2 : ev.emotion === '부정' ? -1 : 0.5);
+      score = emotionScores.reduce((a, b) => a + b, 0) / emotionScores.length;
+    }
+
+    result.push({ date: dateStr, day, score, hasEntry, eventCount: dayEvents.length });
+  }
+
+  return result;
+}
+
+// ─── 감정 그래프 데이터 ───────────────────────────────────
+export function getEmotionGraphData(events, period = 'weekly') {
+  const now = new Date();
+  let labels = [];
+  let ranges = [];
+
+  if (period === 'weekly') {
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+      const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+      labels.push(dayNames[d.getDay()]);
+      ranges.push(dateStr);
+    }
+  } else {
+    for (let i = 3; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      labels.push(`${d.getMonth() + 1}월`);
+      ranges.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+  }
+
+  const data = ranges.map((range, idx) => {
+    const matchEvents = events.filter(ev => {
+      if (period === 'weekly') return ev.date === range;
+      return ev.date.startsWith(range);
+    });
+
+    const pos = matchEvents.filter(e => e.emotion === '긍정').length;
+    const neg = matchEvents.filter(e => e.emotion === '부정').length;
+    const neu = matchEvents.filter(e => e.emotion === '중립').length;
+    const total = matchEvents.length;
+
+    // 합충형파해 effect dots
+    const effects = {};
+    matchEvents.forEach(ev => {
+      (ev.analysis?.triggeredEffects || []).forEach(e => {
+        effects[e] = (effects[e] || 0) + 1;
+      });
+    });
+
+    return { label: labels[idx], positive: pos, negative: neg, neutral: neu, total, effects };
+  });
+
+  return data;
+}
+
+// ─── 십신별 이벤트 분포 ───────────────────────────────────
+export function getSipsinDistribution(events) {
+  const counts = {};
+  const analyzed = events.filter(ev => ev.analyzed && ev.analysis?.sipsin);
+
+  analyzed.forEach(ev => {
+    const name = ev.analysis.sipsin.name;
+    counts[name] = (counts[name] || 0) + 1;
+  });
+
+  const total = analyzed.length || 1;
+  return Object.entries(counts)
+    .map(([type, count]) => ({
+      type,
+      count,
+      pct: Math.round((count / total) * 100),
+      hanja: Object.values(DIARY_SIPSIN_MAP).find(s => s.sipsin === type)?.hanja || ''
+    }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// ─── 일일 다이어리 폼 초기값 ─────────────────────────────
+export const DIARY_DAILY_FORM = {
+  date: new Date().toISOString().slice(0, 10),
+  emotionScore: 3,       // 0-5
+  intensity: 3,          // 0-5
+  eventTypes: [],        // 십신 기반 다중선택
+  memo: '',              // 300자
+};
+
+// ─── 과거 사건 기록 폼 초기값 ────────────────────────────
+export const DIARY_LIFE_EVENT_FORM = {
+  year: String(new Date().getFullYear()),
+  month: String(new Date().getMonth() + 1).padStart(2, '0'),
+  eventType: '직장 생활',
+  title: '',
+  detail: '',
+  emotionRecall: '중립', // 긍정/부정/중립
+  impact: 3,             // 1-5
+};

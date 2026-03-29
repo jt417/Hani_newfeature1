@@ -1,12 +1,12 @@
 import React from 'react';
-import { MessageSquare, Map as MapIcon, BookOpen, Database, User } from 'lucide-react';
+import { Home, BookOpen, Users, MessageSquare, User } from 'lucide-react';
 
 const TABS = [
+  { key: 'home', label: '홈', Icon: Home, matchKeys: ['home'] },
+  { key: 'diary', label: '사주일기', Icon: BookOpen, matchKeys: ['diary'] },
+  { key: 'compat', label: '궁합', Icon: Users, matchKeys: ['compat'] },
   { key: 'chat', label: '채팅', Icon: MessageSquare, matchKeys: ['chat'] },
-  { key: 'map', label: '관계 맵', Icon: MapIcon, matchKeys: ['map', 'room'] },
-  { key: 'diary', label: '다이어리', Icon: BookOpen, matchKeys: ['diary'] },
-  { key: 'points', label: '포인트', Icon: Database, matchKeys: ['points'] },
-  { key: 'more', label: '더보기', Icon: User, matchKeys: ['more'] },
+  { key: 'my', label: '마이', Icon: User, matchKeys: ['my'] },
 ];
 
 export default function BottomNav({ activeTab, switchTab }) {
